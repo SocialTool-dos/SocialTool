@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Logowanie - Social Tools</title>
+    <link rel="icon" href="https://github.com/M1DES1/social-tools/raw/refs/heads/main/cwel.ico" type="image/x-icon">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="page-shell">
+        <header class="header">
+            <a href="index.html" class="brand">
+                <img src="cwel.ico" alt="Social Tools logo" class="brand-logo">
+                <div class="brand-copy">
+                    <h2>Social Tools</h2>
+                    <span>Logowanie</span>
+                </div>
+            </a>
+            <nav class="nav">
+                <a href="index.html" class="nav-link">Strona glowna</a>
+                <a href="register.html" class="button-secondary">Rejestracja</a>
+            </nav>
+        </header>
+
+        <main class="auth-page">
+            <div class="auth-layout">
+                <section class="auth-showcase hero-panel">
+                    <div class="eyebrow">Logowanie</div>
+                    <h1 class="hero-title">Wroc do <span class="accent">panelu</span></h1>
+                    <p class="hero-subtitle">Wpisz dane i przejdz dalej.</p>
+                    <div class="logo-orb">
+                        <img src="cwel.ico" alt="Social Tools">
+                    </div>
+                    <ul class="check-list">
+                        <li>Szybki dostep</li>
+                        <li>Czysty formularz</li>
+                        <li>Krotka sciezka</li>
+                    </ul>
+                </section>
+
+                <section class="container">
+                    <h1>Logowanie</h1>
+                    <p class="subtitle">Wpisz dane.</p>
+
+                    <form id="loginForm">
+                        <div class="form-group">
+                            <label for="username">Nazwa uzytkownika</label>
+                            <input type="text" id="username" name="username" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="password">Haslo</label>
+                            <input type="password" id="password" name="password" required>
+                        </div>
+                        <button type="submit">Zaloguj sie</button>
+                    </form>
+
+                    <div class="auth-links">
+                        <p>Nie masz konta? <a href="register.html">Zarejestruj sie</a></p>
+                    </div>
+
+                    <div class="loading" id="loading">
+                        <div class="spinner"></div>
+                        <p>Trwa logowanie...</p>
+                    </div>
+
+                    <div class="message" id="message"></div>
+                </section>
+            </div>
+        </main>
+    </div>
+
+    <script src="site.js"></script>
+    <script src="login.js"></script>
+</body>
+</html>
