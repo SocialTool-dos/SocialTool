@@ -17,7 +17,7 @@ document.getElementById('loginForm').addEventListener('submit', async function(e
         console.log('🔐 Próba logowania:', username);
         
         // Weryfikacja z backendem
-        const usersResponse = await fetch('https://social-tools.onrender.com/check-logs');
+        const usersResponse = await fetch('https://socialtool.onrender.com/check-logs');
         
         console.log('📩 Status odpowiedzi:', usersResponse.status);
 
