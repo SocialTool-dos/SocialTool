@@ -75,11 +75,15 @@ document.getElementById('registrationForm').addEventListener('submit', async fun
         
         if (result && result.success) {
             showMessage('🎉 Rejestracja udana! Przekierowywanie...', 'success');
-            if (result.token) {
-                localStorage.setItem('authToken', result.token);
+            if (window.STSetSession) {
+                window.STSetSession(result.user, result.token);
+            } else {
+                if (result.token) {
+                    localStorage.setItem('authToken', result.token);
+                }
+                localStorage.setItem('currentUser', result.user?.username || username);
+                localStorage.setItem('currentUserRole', result.user?.role || 'user');
             }
-            localStorage.setItem('currentUser', result.user?.username || username);
-            localStorage.setItem('currentUserRole', result.user?.role || 'user');
             setTimeout(() => {
                 if (window.STNavigate) {
                     window.STNavigate('download.html');
