@@ -211,9 +211,14 @@ function renderConversationHeader() {
     subtitle.textContent = 'Nowe wiadomosci odswiezaja sie automatycznie co 2 sekundy.';
 }
 
-async function loadUsers() {
+async function loadUsers(options = {}) {
     const usersList = document.getElementById('usersList');
-    usersList.innerHTML = '<li>Ladowanie uzytkownikow...</li>';
+    const shouldShowLoading = !options.silent;
+    const hasExistingContent = usersList.children.length > 0;
+
+    if (shouldShowLoading || !hasExistingContent) {
+        usersList.innerHTML = '<li>Ladowanie uzytkownikow...</li>';
+    }
 
     try {
         const data = await apiFetch('/users');
@@ -237,9 +242,14 @@ async function loadUsers() {
     }
 }
 
-async function loadBans() {
+async function loadBans(options = {}) {
     const bansList = document.getElementById('bansList');
-    bansList.innerHTML = '<li>Ladowanie banow...</li>';
+    const shouldShowLoading = !options.silent;
+    const hasExistingContent = bansList.children.length > 0;
+
+    if (shouldShowLoading || !hasExistingContent) {
+        bansList.innerHTML = '<li>Ladowanie banow...</li>';
+    }
 
     try {
         const data = await apiFetch('/bans');
@@ -383,15 +393,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('adminIdentity').textContent = 'Zalogowany admin: ' + currentUser.username;
     renderConversationHeader();
 
-    document.getElementById('refreshUsersBtn').addEventListener('click', loadUsers);
-    document.getElementById('refreshBansBtn').addEventListener('click', loadBans);
+    document.getElementById('refreshUsersBtn').addEventListener('click', () => loadUsers());
+    document.getElementById('refreshBansBtn').addEventListener('click', () => loadBans());
     document.getElementById('adminReplyForm').addEventListener('submit', handleAdminReply);
 
     await Promise.all([loadUsers(), loadBans(), loadConversations()]);
     await loadConversationMessages(true);
 
     adminState.pollTimer = window.setInterval(async () => {
-        await Promise.all([loadUsers(), loadBans(), loadConversations()]);
+        await loadConversations();
         await loadConversationMessages(false);
     }, 2000);
 });
