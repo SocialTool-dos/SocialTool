@@ -182,6 +182,24 @@ const BAN_LIST = new Map();
 const USER_MESSAGES = new Map();
 const SESSION_TOKENS = new Map();
 
+async function ensureColumnExists(connection, tableName, columnName, definition) {
+    const [rows] = await connection.execute(
+        `SELECT 1
+         FROM INFORMATION_SCHEMA.COLUMNS
+         WHERE TABLE_SCHEMA = DATABASE()
+           AND TABLE_NAME = ?
+           AND COLUMN_NAME = ?
+         LIMIT 1`,
+        [tableName, columnName]
+    );
+
+    if (!rows.length) {
+        await connection.execute(
+            `ALTER TABLE \`${tableName}\` ADD COLUMN \`${columnName}\` ${definition}`
+        );
+    }
+}
+
 // INICJALIZACJA BAZY DANYCH
 async function initializeDatabase() {
     let connection;
@@ -205,18 +223,9 @@ async function initializeDatabase() {
             )
         `);
 
-        await connection.execute(`
-            ALTER TABLE users
-            ADD COLUMN IF NOT EXISTS role VARCHAR(50) DEFAULT 'user'
-        `);
-        await connection.execute(`
-            ALTER TABLE users
-            ADD COLUMN IF NOT EXISTS terms_accepted TINYINT(1) DEFAULT 0
-        `);
-        await connection.execute(`
-            ALTER TABLE users
-            ADD COLUMN IF NOT EXISTS terms_accepted_at TIMESTAMP NULL
-        `);
+        await ensureColumnExists(connection, 'users', 'role', "VARCHAR(50) DEFAULT 'user'");
+        await ensureColumnExists(connection, 'users', 'terms_accepted', "TINYINT(1) DEFAULT 0");
+        await ensureColumnExists(connection, 'users', 'terms_accepted_at', 'TIMESTAMP NULL');
 
         await connection.execute(`
             CREATE TABLE IF NOT EXISTS support_messages (
