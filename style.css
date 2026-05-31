@@ -836,8 +836,8 @@ button:active {
 
 .support-drawer {
     position: fixed;
-    top: 24px;
-    right: 24px;
+    top: 50%;
+    left: 50%;
     width: min(460px, calc(100vw - 32px));
     height: calc(100vh - 48px);
     padding: 24px;
@@ -845,7 +845,7 @@ button:active {
     border: 1px solid var(--panel-border);
     border-radius: 28px;
     box-shadow: var(--shadow);
-    transform: translateY(18px) scale(0.96);
+    transform: translate(-50%, calc(-50% + 18px)) scale(0.96);
     opacity: 0;
     visibility: hidden;
     pointer-events: none;
@@ -857,18 +857,15 @@ button:active {
 }
 
 .support-drawer.is-open {
-    transform: translateY(0) scale(1);
+    transform: translate(-50%, -50%) scale(1);
     opacity: 1;
     visibility: visible;
     pointer-events: auto;
 }
 
 .support-drawer-compact {
-    top: auto;
-    right: 24px;
-    bottom: 104px;
     width: min(400px, calc(100vw - 32px));
-    height: min(560px, calc(100vh - 140px));
+    height: min(520px, calc(100vh - 120px));
     border-radius: 24px;
 }
 
@@ -1101,17 +1098,14 @@ button:active {
     }
 
     .support-drawer {
-        top: 16px;
-        right: 16px;
+        top: 50%;
+        left: 50%;
         height: calc(100vh - 32px);
     }
 
     .support-drawer-compact {
-        top: auto;
-        right: 16px;
-        bottom: 90px;
         width: min(400px, calc(100vw - 24px));
-        height: min(520px, calc(100vh - 120px));
+        height: min(500px, calc(100vh - 100px));
     }
 
     .support-fab {
