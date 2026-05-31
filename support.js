@@ -18,6 +18,7 @@ function setSupportStatus(message, type = 'success') {
 
 function toggleSupportDrawer(forceOpen) {
     const drawer = document.getElementById('supportDrawer');
+    const toggleBtn = document.getElementById('supportToggleBtn');
     if (!drawer) {
         return;
     }
@@ -25,6 +26,9 @@ function toggleSupportDrawer(forceOpen) {
     supportState.isOpen = typeof forceOpen === 'boolean' ? forceOpen : !supportState.isOpen;
     drawer.classList.toggle('is-open', supportState.isOpen);
     drawer.setAttribute('aria-hidden', supportState.isOpen ? 'false' : 'true');
+    if (toggleBtn) {
+        toggleBtn.classList.toggle('is-open', supportState.isOpen);
+    }
 
     if (supportState.isOpen) {
         if (!supportState.currentUser) {
