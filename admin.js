@@ -197,6 +197,39 @@ function buildUserCard(user) {
     return wrapper;
 }
 
+function buildBanCard(ban) {
+    const wrapper = document.createElement('div');
+    wrapper.className = 'side-card admin-ban-card';
+    const deletedAccount = !ban.username || ban.reason === 'Konto usuniete przez administratora';
+
+    wrapper.innerHTML = `
+        <h3>${escapeHtml(ban.username || 'Usuniete konto')}</h3>
+        <p class="section-subtitle" style="margin-bottom: 10px;">IP: ${escapeHtml(ban.ip || '-')}</p>
+        <p class="subtitle" style="margin-bottom: 10px;">Powod: ${escapeHtml(ban.reason || '-')}</p>
+        <p class="subtitle" style="margin-bottom: 14px;">Admin: ${escapeHtml(ban.banned_by || '-')} | Data: ${escapeHtml(formatDate(ban.banned_at) || '-')}</p>
+        <div class="hero-actions" style="margin: 0;">
+            <button class="button" type="button" data-action="unban">Odbanuj</button>
+        </div>
+        <p class="subtitle" style="margin-top: 12px;">${deletedAccount ? 'Ten wpis mozna odbanowac nawet po usunieciu konta, bo blokada siedzi na IP.' : 'Aktywna blokada przypisana do konta i IP.'}</p>
+    `;
+
+    wrapper.querySelector('[data-action="unban"]').addEventListener('click', async () => {
+        try {
+            await apiFetch('/unban-ip', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ip: ban.ip })
+            });
+            showMessage('Odbanowano IP ' + ban.ip, 'success');
+            await Promise.all([loadUsers(), loadBans()]);
+        } catch (error) {
+            showMessage(error.message, 'error');
+        }
+    });
+
+    return wrapper;
+}
+
 function renderConversationHeader() {
     const title = document.getElementById('selectedConversationTitle');
     const subtitle = document.getElementById('selectedConversationSubtitle');
@@ -262,7 +295,9 @@ async function loadBans(options = {}) {
 
         data.bans.forEach((ban) => {
             const item = document.createElement('li');
-            item.textContent = `${ban.username || '-'} | IP: ${ban.ip} | Powod: ${ban.reason || '-'} | Admin: ${ban.banned_by || '-'}`;
+            item.style.listStyle = 'none';
+            item.style.paddingLeft = '0';
+            item.appendChild(buildBanCard(ban));
             bansList.appendChild(item);
         });
     } catch (error) {
