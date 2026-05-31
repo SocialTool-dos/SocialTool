@@ -86,9 +86,14 @@ document.addEventListener("DOMContentLoaded", () => {
                 return data.user;
             }
         } catch (error) {
-            localStorage.removeItem("authToken");
-            localStorage.removeItem("currentUser");
-            localStorage.removeItem("currentUserRole");
+            const fallbackUsername = localStorage.getItem("currentUser");
+            const fallbackRole = localStorage.getItem("currentUserRole");
+            if (fallbackUsername) {
+                return {
+                    username: fallbackUsername,
+                    role: fallbackRole || "user"
+                };
+            }
         }
 
         return null;
