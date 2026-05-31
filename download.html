@@ -136,6 +136,27 @@
     <script src="site.js"></script>
     <script src="support.js"></script>
     <script>
+        document.addEventListener('DOMContentLoaded', async function() {
+            const currentUser = await window.STRequireAuth('login.html');
+            if (!currentUser) {
+                return;
+            }
+
+            const nav = document.querySelector('.nav');
+            const identity = document.getElementById('downloadIdentity');
+            if (identity) {
+                identity.textContent = 'Zalogowany: ' + currentUser.username + ' (' + currentUser.role + ')';
+            }
+            if (nav) {
+                nav.innerHTML = `
+                    <a href="index.html" class="nav-link">Start</a>
+                    <a href="download.html" class="nav-link">Pobieranie</a>
+                    ${currentUser.role === 'admin' ? '<a href="admin.html" class="nav-link">Panel admina</a>' : ''}
+                    <a href="#" class="button-secondary" onclick="logout()">Wyloguj</a>
+                `;
+            }
+        });
+
         function logout() {
             window.STLogout('index.html');
         }
