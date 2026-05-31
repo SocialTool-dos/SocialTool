@@ -209,9 +209,10 @@
     <script src="site.js"></script>
     <script src="support.js"></script>
     <script>
-        function checkAuth(event) {
+        async function checkAuth(event) {
             event.preventDefault();
-            const currentUser = localStorage.getItem('currentUser');
+            const sessionUser = window.STRefreshSession ? await window.STRefreshSession() : null;
+            const currentUser = sessionUser?.username || localStorage.getItem('currentUser');
 
             if (currentUser) {
                 window.STNavigate('download.html');
