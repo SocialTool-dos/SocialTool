@@ -35,6 +35,22 @@ document.addEventListener("DOMContentLoaded", () => {
         return localStorage.getItem("authToken");
     };
 
+    window.STClearSession = function() {
+        localStorage.removeItem("authToken");
+        localStorage.removeItem("currentUser");
+        localStorage.removeItem("currentUserRole");
+    };
+
+    window.STSetSession = function(user, token) {
+        if (token) {
+            localStorage.setItem("authToken", token);
+        }
+        if (user && user.username) {
+            localStorage.setItem("currentUser", user.username);
+            localStorage.setItem("currentUserRole", user.role || "user");
+        }
+    };
+
     window.STGetAuthHeaders = function(extraHeaders = {}) {
         const headers = { ...extraHeaders };
         const token = window.STGetToken();
@@ -59,14 +75,11 @@ document.addEventListener("DOMContentLoaded", () => {
             }
         }
 
-        if (response.status === 401) {
-            localStorage.removeItem("authToken");
-            localStorage.removeItem("currentUser");
-            localStorage.removeItem("currentUserRole");
-        }
-
         if (!response.ok || (data && data.success === false)) {
-            throw new Error((data && (data.message || data.error)) || "Blad serwera");
+            const error = new Error((data && (data.message || data.error)) || "Blad serwera");
+            error.status = response.status;
+            error.payload = data;
+            throw error;
         }
 
         return data;
@@ -81,14 +94,17 @@ document.addEventListener("DOMContentLoaded", () => {
         try {
             const data = await window.STAuthorizedFetch("/auth/me");
             if (data && data.user) {
-                localStorage.setItem("currentUser", data.user.username);
-                localStorage.setItem("currentUserRole", data.user.role || "user");
+                window.STSetSession(data.user);
                 return data.user;
             }
         } catch (error) {
+            if (error && error.status === 401) {
+                window.STClearSession();
+                return null;
+            }
             const fallbackUsername = localStorage.getItem("currentUser");
             const fallbackRole = localStorage.getItem("currentUserRole");
-            if (fallbackUsername) {
+            if (fallbackUsername && token) {
                 return {
                     username: fallbackUsername,
                     role: fallbackRole || "user"
@@ -110,9 +126,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     window.STLogout = function(targetUrl = "index.html") {
         try {
-            localStorage.removeItem("authToken");
-            localStorage.removeItem("currentUser");
-            localStorage.removeItem("currentUserRole");
+            window.STClearSession();
         } catch (error) {
             console.error(error);
         }
