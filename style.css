@@ -834,6 +834,20 @@ button:active {
     right: -2px;
 }
 
+.support-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(4, 6, 14, 0.68);
+    backdrop-filter: blur(8px);
+    z-index: 1190;
+    opacity: 0;
+    transition: opacity 0.24s ease;
+}
+
+.support-backdrop.is-visible {
+    opacity: 1;
+}
+
 .support-drawer {
     position: fixed;
     top: 50%;
@@ -877,8 +891,95 @@ button:active {
     gap: 16px;
 }
 
+.support-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+}
+
+.support-connection-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 8px 12px;
+    border-radius: 999px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(255, 255, 255, 0.04);
+    color: var(--text);
+    font-size: 0.82rem;
+    font-weight: 700;
+}
+
+.support-connection-badge.is-online {
+    color: #c8ffe2;
+    background: rgba(40, 167, 69, 0.16);
+    border-color: rgba(40, 167, 69, 0.34);
+}
+
+.support-connection-badge.is-warning {
+    color: #ffe2a8;
+    background: rgba(255, 193, 7, 0.14);
+    border-color: rgba(255, 193, 7, 0.3);
+}
+
+.support-connection-badge.is-error {
+    color: #ffd2db;
+    background: rgba(255, 106, 133, 0.16);
+    border-color: rgba(255, 106, 133, 0.34);
+}
+
 .support-close {
     width: auto;
+}
+
+.support-drawer-summary {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.support-summary-card {
+    padding: 14px 16px;
+    border-radius: 18px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    display: grid;
+    gap: 6px;
+}
+
+.support-summary-card strong {
+    color: var(--text);
+    font-size: 1rem;
+}
+
+.support-summary-card p {
+    margin: 0;
+    color: var(--muted);
+    line-height: 1.55;
+    font-size: 0.92rem;
+}
+
+.support-summary-label {
+    color: #b5c2ff;
+    font-size: 0.76rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    font-weight: 700;
+}
+
+.support-thread-wrap {
+    display: grid;
+    gap: 10px;
+}
+
+.support-thread-toolbar {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    color: var(--muted);
+    font-size: 0.88rem;
 }
 
 .support-thread {
@@ -887,8 +988,9 @@ button:active {
     overflow-y: auto;
     padding: 16px;
     border-radius: 22px;
-    background: rgba(255, 255, 255, 0.03);
-    border: 1px solid rgba(255, 255, 255, 0.06);
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.045) 0%, rgba(255, 255, 255, 0.025) 100%);
+    border: 1px solid rgba(255, 255, 255, 0.08);
     display: grid;
     gap: 12px;
 }
@@ -901,6 +1003,10 @@ button:active {
     color: var(--muted);
     line-height: 1.7;
     align-self: center;
+    text-align: center;
+    padding: 18px;
+    border-radius: 18px;
+    background: rgba(255, 255, 255, 0.03);
 }
 
 .support-message {
@@ -909,6 +1015,7 @@ button:active {
     border-radius: 18px;
     display: grid;
     gap: 8px;
+    box-shadow: 0 10px 22px rgba(0, 0, 0, 0.18);
 }
 
 .support-message.is-own,
@@ -946,6 +1053,42 @@ button:active {
 .support-form {
     display: grid;
     gap: 12px;
+}
+
+.support-form label {
+    font-weight: 700;
+    color: var(--text);
+}
+
+.support-form textarea {
+    resize: vertical;
+    min-height: 118px;
+    padding: 14px 16px;
+    border-radius: 18px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(255, 255, 255, 0.04);
+    color: var(--text);
+    font: inherit;
+    line-height: 1.6;
+}
+
+.support-form textarea:focus {
+    outline: none;
+    border-color: rgba(143, 77, 255, 0.52);
+    box-shadow: 0 0 0 3px rgba(143, 77, 255, 0.12);
+}
+
+.support-form textarea:disabled {
+    opacity: 0.72;
+    cursor: not-allowed;
+}
+
+.support-form-meta {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    color: var(--muted);
+    font-size: 0.84rem;
 }
 
 .support-form-actions {
@@ -1004,6 +1147,10 @@ button:active {
 }
 
 .admin-user-card {
+    margin-bottom: 14px;
+}
+
+.admin-ban-card {
     margin-bottom: 14px;
 }
 
@@ -1073,6 +1220,10 @@ button:active {
         grid-template-columns: 1fr;
     }
 
+    .support-drawer-summary {
+        grid-template-columns: 1fr;
+    }
+
 
     .features,
     .stats-strip {
@@ -1106,6 +1257,13 @@ button:active {
     .support-drawer-compact {
         width: min(400px, calc(100vw - 24px));
         height: min(500px, calc(100vh - 100px));
+    }
+
+    .support-thread-toolbar,
+    .support-form-meta,
+    .support-header-actions {
+        flex-direction: column;
+        align-items: flex-start;
     }
 
     .support-fab {
