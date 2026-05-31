@@ -2,7 +2,8 @@ const supportState = {
     currentUser: null,
     pollTimer: null,
     isOpen: false,
-    lastRenderedSignature: ''
+    lastRenderedSignature: '',
+    initialized: false
 };
 
 function setSupportStatus(message, type = 'success') {
@@ -26,7 +27,11 @@ function toggleSupportDrawer(forceOpen) {
     drawer.setAttribute('aria-hidden', supportState.isOpen ? 'false' : 'true');
 
     if (supportState.isOpen) {
-        loadSupportMessages(true);
+        if (!supportState.currentUser) {
+            renderGuestSupportState();
+        } else {
+            loadSupportMessages(true);
+        }
     }
 }
 
@@ -110,6 +115,7 @@ async function markSupportConversationAsRead() {
 
 async function loadSupportMessages(forceScroll = false) {
     if (!supportState.currentUser) {
+        renderGuestSupportState();
         return;
     }
 
@@ -129,6 +135,11 @@ async function loadSupportMessages(forceScroll = false) {
 
 async function handleSupportSubmit(event) {
     event.preventDefault();
+    if (!supportState.currentUser) {
+        window.STNavigate('login.html');
+        return;
+    }
+
     const textarea = document.getElementById('supportMessage');
     const message = textarea.value.trim();
     if (!message) {
@@ -152,16 +163,34 @@ async function handleSupportSubmit(event) {
     }
 }
 
-document.addEventListener('DOMContentLoaded', async () => {
-    const currentUser = await window.STRequireAuth('login.html');
-    if (!currentUser) {
-        return;
-    }
+function renderGuestSupportState() {
+    const thread = document.getElementById('supportThread');
+    const subtitle = document.getElementById('supportDrawerSubtitle');
+    const textarea = document.getElementById('supportMessage');
+    const status = document.getElementById('supportStatus');
 
-    supportState.currentUser = currentUser;
+    if (subtitle) {
+        subtitle.textContent = 'Zaloguj sie, aby napisac do pomocy technicznej i zobaczyc odpowiedzi administratora.';
+    }
+    if (thread) {
+        thread.innerHTML = '<div class="support-empty">Support jest dostepny po zalogowaniu. Po zalogowaniu zobaczysz tu cala rozmowe z administracja.</div>';
+    }
+    if (textarea) {
+        textarea.value = '';
+        textarea.disabled = true;
+        textarea.placeholder = 'Zaloguj sie, aby rozpoczac rozmowe z supportem...';
+    }
+    if (status) {
+        setSupportStatus('Aby skorzystac z pomocy technicznej, zaloguj sie.', 'error');
+    }
+    updateSupportBadge(0);
+}
+
+function renderAuthenticatedSupportState(currentUser) {
     const adminLink = document.getElementById('adminLink');
     const identity = document.getElementById('downloadIdentity');
     const subtitle = document.getElementById('supportDrawerSubtitle');
+    const textarea = document.getElementById('supportMessage');
 
     if (identity) {
         identity.textContent = 'Zalogowany: ' + currentUser.username + ' (' + currentUser.role + ')';
@@ -169,16 +198,45 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (subtitle) {
         subtitle.textContent = 'Rozmowa jest zapisywana na serwerze i odswiezana automatycznie.';
     }
+    if (textarea) {
+        textarea.disabled = false;
+        textarea.placeholder = 'Opisz problem albo pytanie...';
+    }
     if (adminLink && currentUser.role === 'admin') {
         adminLink.style.display = 'inline-flex';
     }
+}
 
-    document.getElementById('supportToggleBtn').addEventListener('click', () => toggleSupportDrawer());
-    document.getElementById('supportCloseBtn').addEventListener('click', () => toggleSupportDrawer(false));
-    document.getElementById('supportForm').addEventListener('submit', handleSupportSubmit);
+async function initializeSupportWidget() {
+    if (supportState.initialized) {
+        return;
+    }
+    supportState.initialized = true;
 
+    const toggleBtn = document.getElementById('supportToggleBtn');
+    const closeBtn = document.getElementById('supportCloseBtn');
+    const form = document.getElementById('supportForm');
+    if (!toggleBtn || !closeBtn || !form) {
+        return;
+    }
+
+    toggleBtn.addEventListener('click', () => toggleSupportDrawer());
+    closeBtn.addEventListener('click', () => toggleSupportDrawer(false));
+    form.addEventListener('submit', handleSupportSubmit);
+
+    const currentUser = await window.STRefreshSession();
+    supportState.currentUser = currentUser;
+
+    if (!currentUser) {
+        renderGuestSupportState();
+        return;
+    }
+
+    renderAuthenticatedSupportState(currentUser);
     await loadSupportMessages(true);
     supportState.pollTimer = window.setInterval(() => {
         loadSupportMessages(false);
     }, 2000);
-});
+}
+
+document.addEventListener('DOMContentLoaded', initializeSupportWidget);
