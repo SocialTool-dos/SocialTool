@@ -3,7 +3,8 @@ const supportState = {
     pollTimer: null,
     isOpen: false,
     lastRenderedSignature: '',
-    initialized: false
+    initialized: false,
+    unreadCount: 0
 };
 
 function setSupportStatus(message, type = 'success') {
@@ -16,9 +17,52 @@ function setSupportStatus(message, type = 'success') {
     statusEl.style.display = message ? 'block' : 'none';
 }
 
+function setSupportConnectionState(label, mode = 'neutral') {
+    const badge = document.getElementById('supportConnectionBadge');
+    if (!badge) {
+        return;
+    }
+    badge.textContent = label;
+    badge.className = 'support-connection-badge is-' + mode;
+}
+
+function updateSupportMeta(details = {}) {
+    const summaryTitle = document.getElementById('supportSummaryTitle');
+    const summaryText = document.getElementById('supportSummaryText');
+    const identityLabel = document.getElementById('supportIdentityLabel');
+    const lastUpdate = document.getElementById('supportLastUpdate');
+    const unreadHint = document.getElementById('supportUnreadHint');
+
+    if (summaryTitle && details.summaryTitle) {
+        summaryTitle.textContent = details.summaryTitle;
+    }
+    if (summaryText && details.summaryText) {
+        summaryText.textContent = details.summaryText;
+    }
+    if (identityLabel && details.identityLabel) {
+        identityLabel.textContent = details.identityLabel;
+    }
+    if (lastUpdate && details.lastUpdate) {
+        lastUpdate.textContent = details.lastUpdate;
+    }
+    if (unreadHint) {
+        unreadHint.textContent = details.unreadHint || 'Brak nowych wiadomosci';
+    }
+}
+
+function updateSupportCharCount() {
+    const textarea = document.getElementById('supportMessage');
+    const counter = document.getElementById('supportCharCount');
+    if (!textarea || !counter) {
+        return;
+    }
+    counter.textContent = textarea.value.length + ' / 2000';
+}
+
 function toggleSupportDrawer(forceOpen) {
     const drawer = document.getElementById('supportDrawer');
     const toggleBtn = document.getElementById('supportToggleBtn');
+    const backdrop = document.getElementById('supportBackdrop');
     if (!drawer) {
         return;
     }
@@ -26,8 +70,14 @@ function toggleSupportDrawer(forceOpen) {
     supportState.isOpen = typeof forceOpen === 'boolean' ? forceOpen : !supportState.isOpen;
     drawer.classList.toggle('is-open', supportState.isOpen);
     drawer.setAttribute('aria-hidden', supportState.isOpen ? 'false' : 'true');
+    document.body.classList.toggle('support-open', supportState.isOpen);
+    if (backdrop) {
+        backdrop.hidden = !supportState.isOpen;
+        backdrop.classList.toggle('is-visible', supportState.isOpen);
+    }
     if (toggleBtn) {
         toggleBtn.classList.toggle('is-open', supportState.isOpen);
+        toggleBtn.setAttribute('aria-expanded', supportState.isOpen ? 'true' : 'false');
     }
 
     if (supportState.isOpen) {
@@ -52,7 +102,7 @@ function renderSupportMessages(messages, forceScroll = false) {
     supportState.lastRenderedSignature = signature;
 
     if (!messages.length) {
-        thread.innerHTML = '<div class="support-empty">Nie ma jeszcze wiadomosci. Napisz do pomocy technicznej, a administrator odpowie tutaj.</div>';
+        thread.innerHTML = '<div class="support-empty">Nie ma jeszcze wiadomosci. Opisz problem albo pytanie, a odpowiedz administratora pojawi sie tutaj.</div>';
         return;
     }
 
@@ -76,6 +126,7 @@ function renderSupportMessages(messages, forceScroll = false) {
 
 function updateSupportBadge(unreadCount) {
     const badge = document.getElementById('supportUnreadBadge');
+    supportState.unreadCount = unreadCount;
     if (!badge) {
         return;
     }
@@ -124,15 +175,27 @@ async function loadSupportMessages(forceScroll = false) {
     }
 
     try {
+        setSupportConnectionState('Online', 'online');
         const data = await window.STAuthorizedFetch('/support/messages/' + encodeURIComponent(supportState.currentUser.username));
         renderSupportMessages(data.messages || [], forceScroll);
         updateSupportBadge(data.unread_count || 0);
+        updateSupportMeta({
+            summaryTitle: 'Wiadomosci z administracja',
+            summaryText: 'Rozmowa jest zapisywana na serwerze i odswiezana automatycznie.',
+            identityLabel: 'Zalogowany: ' + supportState.currentUser.username + ' (' + supportState.currentUser.role + ')',
+            lastUpdate: 'Ostatnie sprawdzenie: ' + formatSupportDate(new Date().toISOString()),
+            unreadHint: (data.unread_count || 0) > 0 ? ('Nowe odpowiedzi: ' + (data.unread_count || 0)) : 'Brak nowych wiadomosci'
+        });
 
         if (supportState.isOpen && (data.unread_count || 0) > 0) {
             await markSupportConversationAsRead();
             updateSupportBadge(0);
+            updateSupportMeta({
+                unreadHint: 'Wszystkie wiadomosci przeczytane'
+            });
         }
     } catch (error) {
+        setSupportConnectionState('Blad', 'error');
         setSupportStatus(error.message, 'error');
     }
 }
@@ -160,6 +223,7 @@ async function handleSupportSubmit(event) {
             body: JSON.stringify({ message })
         });
         textarea.value = '';
+        updateSupportCharCount();
         setSupportStatus('Wiadomosc wyslana.', 'success');
         await loadSupportMessages(true);
     } catch (error) {
@@ -171,8 +235,8 @@ function renderGuestSupportState() {
     const thread = document.getElementById('supportThread');
     const subtitle = document.getElementById('supportDrawerSubtitle');
     const textarea = document.getElementById('supportMessage');
-    const status = document.getElementById('supportStatus');
 
+    setSupportConnectionState('Wymaga logowania', 'warning');
     if (subtitle) {
         subtitle.textContent = 'Zaloguj sie, aby napisac do pomocy technicznej i zobaczyc odpowiedzi administratora.';
     }
@@ -183,10 +247,16 @@ function renderGuestSupportState() {
         textarea.value = '';
         textarea.disabled = true;
         textarea.placeholder = 'Zaloguj sie, aby rozpoczac rozmowe z supportem...';
+        updateSupportCharCount();
     }
-    if (status) {
-        setSupportStatus('Aby skorzystac z pomocy technicznej, zaloguj sie.', 'error');
-    }
+    updateSupportMeta({
+        summaryTitle: 'Pomoc techniczna',
+        summaryText: 'Po zalogowaniu mozesz napisac bezposrednio do administracji.',
+        identityLabel: 'Tryb goscia',
+        lastUpdate: 'Zaloguj sie, aby rozpoczec rozmowe.',
+        unreadHint: 'Brak dostepu bez logowania'
+    });
+    setSupportStatus('Aby skorzystac z pomocy technicznej, zaloguj sie.', 'error');
     updateSupportBadge(0);
 }
 
@@ -199,13 +269,22 @@ function renderAuthenticatedSupportState(currentUser) {
     if (identity) {
         identity.textContent = 'Zalogowany: ' + currentUser.username + ' (' + currentUser.role + ')';
     }
+    setSupportConnectionState('Online', 'online');
     if (subtitle) {
         subtitle.textContent = 'Rozmowa jest zapisywana na serwerze i odswiezana automatycznie.';
     }
     if (textarea) {
         textarea.disabled = false;
         textarea.placeholder = 'Opisz problem albo pytanie...';
+        updateSupportCharCount();
     }
+    updateSupportMeta({
+        summaryTitle: 'Wiadomosci z administracja',
+        summaryText: 'Napisz konkretnie, co nie dziala albo czego potrzebujesz.',
+        identityLabel: 'Zalogowany: ' + currentUser.username + ' (' + currentUser.role + ')',
+        lastUpdate: 'Nowe odpowiedzi pojawiaja sie automatycznie.',
+        unreadHint: supportState.unreadCount > 0 ? ('Nowe odpowiedzi: ' + supportState.unreadCount) : 'Brak nowych wiadomosci'
+    });
     if (adminLink && currentUser.role === 'admin') {
         adminLink.style.display = 'inline-flex';
     }
@@ -219,14 +298,28 @@ async function initializeSupportWidget() {
 
     const toggleBtn = document.getElementById('supportToggleBtn');
     const closeBtn = document.getElementById('supportCloseBtn');
+    const backdrop = document.getElementById('supportBackdrop');
     const form = document.getElementById('supportForm');
+    const textarea = document.getElementById('supportMessage');
     if (!toggleBtn || !closeBtn || !form) {
         return;
     }
 
     toggleBtn.addEventListener('click', () => toggleSupportDrawer());
     closeBtn.addEventListener('click', () => toggleSupportDrawer(false));
+    if (backdrop) {
+        backdrop.addEventListener('click', () => toggleSupportDrawer(false));
+    }
     form.addEventListener('submit', handleSupportSubmit);
+    if (textarea) {
+        textarea.addEventListener('input', updateSupportCharCount);
+        updateSupportCharCount();
+    }
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape' && supportState.isOpen) {
+            toggleSupportDrawer(false);
+        }
+    });
 
     const currentUser = await window.STRefreshSession();
     supportState.currentUser = currentUser;
