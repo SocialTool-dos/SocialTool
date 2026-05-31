@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pobierz Social Tools</title>
+    <link rel="icon" href="https://github.com/M1DES1/social-tools/raw/refs/heads/main/cwel.ico" type="image/x-icon">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="page-shell">
+        <header class="header">
+            <a href="index.html" class="brand">
+                <img src="cwel.ico" alt="Social Tools logo" class="brand-logo">
+                <div class="brand-copy">
+                    <h2>Social Tools</h2>
+                    <span>Pobieranie</span>
+                </div>
+            </a>
+            <nav class="nav">
+                <a href="index.html" class="nav-link">Start</a>
+                <a href="login.html" class="nav-link">Logowanie</a>
+                <a href="admin.html" class="nav-link" id="adminLink" style="display: none;">Panel admina</a>
+                <a href="#" class="button-secondary" onclick="logout()">Wyloguj</a>
+            </nav>
+        </header>
+
+        <main class="download-page">
+            <section class="download-card">
+                <div>
+                    <div class="eyebrow">Pobieranie</div>
+                    <h1>Pobierz Social Tools</h1>
+                    <p class="download-summary">Klikasz i pobierasz.</p>
+
+                    <div class="hero-actions">
+                        <a href="https://github.com/M1DES1/social-tools/raw/refs/heads/main/Social%20Tools.exe" class="download-btn">
+                            Pobierz Social Tools.exe
+                        </a>
+                        <button type="button" class="button-secondary" id="supportToggleBtn">
+                            Pomoc techniczna
+                            <span class="support-badge" id="supportUnreadBadge" style="display: none;">0</span>
+                        </button>
+                        <a href="index.html" class="button-secondary">Wroc na strone glowna</a>
+                    </div>
+
+                    <p class="mini-note">Po pobraniu uruchom plik `.exe` na Windows i przejdz przez konfiguracje aplikacji.</p>
+                </div>
+
+                <aside class="side-card">
+                    <div class="logo-orb">
+                        <img src="cwel.ico" alt="Social Tools">
+                    </div>
+                    <div class="download-info">
+                        <div class="info-row">
+                            <span>Plik</span>
+                            <strong>Social Tools.exe</strong>
+                        </div>
+                        <div class="info-row">
+                            <span>Wersja</span>
+                            <strong>2.0</strong>
+                        </div>
+                        <div class="info-row">
+                            <span>System</span>
+                            <strong>Windows</strong>
+                        </div>
+                        <div class="info-row">
+                            <span>Typ</span>
+                            <strong>Desktop app</strong>
+                        </div>
+                    </div>
+                </aside>
+            </section>
+
+            <aside class="support-drawer" id="supportDrawer" aria-hidden="true">
+                <div class="support-drawer-header">
+                    <div>
+                        <div class="eyebrow">Pomoc techniczna</div>
+                        <h2>Rozmowa z administracja</h2>
+                        <p class="subtitle" id="supportDrawerSubtitle">Laczenie z serwerem...</p>
+                    </div>
+                    <button type="button" class="button-secondary support-close" id="supportCloseBtn">Zamknij</button>
+                </div>
+                <div class="support-thread" id="supportThread"></div>
+                <form class="support-form" id="supportForm">
+                    <label for="supportMessage">Napisz wiadomosc</label>
+                    <textarea id="supportMessage" rows="4" maxlength="2000" placeholder="Opisz problem albo pytanie..." required></textarea>
+                    <div class="hero-actions support-form-actions">
+                        <button type="submit">Wyslij</button>
+                    </div>
+                </form>
+                <div class="message" id="supportStatus"></div>
+            </aside>
+        </main>
+
+        <footer class="footer">
+            <span>Social Tools - pobieranie</span>
+            <div class="footer-links">
+                <a href="privacy.html">Privacy</a>
+                <a href="regulamin.html">Regulamin</a>
+                <span id="downloadIdentity"></span>
+            </div>
+        </footer>
+    </div>
+
+    <script src="site.js"></script>
+    <script src="support.js"></script>
+    <script>
+        function logout() {
+            window.STLogout('index.html');
+        }
+    </script>
+</body>
+</html>
