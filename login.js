@@ -40,11 +40,15 @@ document.getElementById('loginForm').addEventListener('submit', async function(e
         
         if (loginData && loginData.success && loginData.user) {
             showMessage('🎉 Logowanie udane!', 'success');
-            if (loginData.token) {
-                localStorage.setItem('authToken', loginData.token);
+            if (window.STSetSession) {
+                window.STSetSession(loginData.user, loginData.token);
+            } else {
+                if (loginData.token) {
+                    localStorage.setItem('authToken', loginData.token);
+                }
+                localStorage.setItem('currentUser', loginData.user.username);
+                localStorage.setItem('currentUserRole', loginData.user.role || 'user');
             }
-            localStorage.setItem('currentUser', loginData.user.username);
-            localStorage.setItem('currentUserRole', loginData.user.role || 'user');
             setTimeout(() => {
                 const targetUrl = loginData.user.is_admin ? 'admin.html' : 'download.html';
                 if (window.STNavigate) {
