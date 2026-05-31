@@ -67,6 +67,7 @@
                 </aside>
             </section>
 
+            <div class="support-backdrop" id="supportBackdrop" hidden></div>
             <aside class="support-drawer" id="supportDrawer" aria-hidden="true">
                 <div class="support-drawer-header">
                     <div>
@@ -74,12 +75,37 @@
                         <h2>Rozmowa z administracja</h2>
                         <p class="subtitle" id="supportDrawerSubtitle">Laczenie z serwerem...</p>
                     </div>
-                    <button type="button" class="button-secondary support-close" id="supportCloseBtn">Zamknij</button>
+                    <div class="support-header-actions">
+                        <span class="support-connection-badge" id="supportConnectionBadge">Laczenie...</span>
+                        <button type="button" class="button-secondary support-close" id="supportCloseBtn">Zamknij</button>
+                    </div>
                 </div>
-                <div class="support-thread" id="supportThread"></div>
+                <div class="support-drawer-summary">
+                    <div class="support-summary-card">
+                        <span class="support-summary-label">Rozmowa</span>
+                        <strong id="supportSummaryTitle">Wiadomosci z administracja</strong>
+                        <p id="supportSummaryText">Mozesz napisac o problemie, bledzie albo pytaniu do konta.</p>
+                    </div>
+                    <div class="support-summary-card">
+                        <span class="support-summary-label">Tryb</span>
+                        <strong id="supportIdentityLabel">Sprawdzanie sesji</strong>
+                        <p id="supportLastUpdate">Nowe odpowiedzi pojawiaja sie automatycznie.</p>
+                    </div>
+                </div>
+                <div class="support-thread-wrap">
+                    <div class="support-thread-toolbar">
+                        <span>Historia rozmowy</span>
+                        <span id="supportUnreadHint">Brak nowych wiadomosci</span>
+                    </div>
+                    <div class="support-thread" id="supportThread"></div>
+                </div>
                 <form class="support-form" id="supportForm">
                     <label for="supportMessage">Napisz wiadomosc</label>
                     <textarea id="supportMessage" rows="4" maxlength="2000" placeholder="Opisz problem albo pytanie..." required></textarea>
+                    <div class="support-form-meta">
+                        <span id="supportCharCount">0 / 2000</span>
+                        <span>Krotko i konkretnie przyspiesza odpowiedz.</span>
+                    </div>
                     <div class="hero-actions support-form-actions">
                         <button type="submit">Wyslij</button>
                     </div>
@@ -87,7 +113,7 @@
                 <div class="message" id="supportStatus"></div>
             </aside>
 
-            <button type="button" class="support-fab" id="supportToggleBtn" aria-label="Otworz pomoc techniczna" title="Pomoc techniczna">
+            <button type="button" class="support-fab" id="supportToggleBtn" aria-label="Otworz pomoc techniczna" title="Pomoc techniczna" aria-expanded="false">
                 <span class="support-fab-icon" aria-hidden="true">
                     <svg viewBox="0 0 24 24" focusable="false">
                         <path d="M12 3C6.477 3 2 6.94 2 11.8c0 2.563 1.244 4.87 3.227 6.49L4.5 22l4.242-2.091c1.011.251 2.106.391 3.258.391 5.523 0 10-3.94 10-8.8S17.523 3 12 3zm-4 7h8a1 1 0 110 2H8a1 1 0 110-2zm0 4h5a1 1 0 110 2H8a1 1 0 110-2z" fill="currentColor"/>
