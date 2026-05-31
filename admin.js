@@ -1,111 +1,480 @@
-<!DOCTYPE html>
-<html lang="pl">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Panel Admina - Social Tools</title>
-    <link rel="icon" href="https://github.com/M1DES1/social-tools/raw/refs/heads/main/cwel.ico" type="image/x-icon">
-    <link rel="stylesheet" href="style.css">
-</head>
-<body>
-    <div class="page-shell">
-        <header class="header">
-            <a href="index.html" class="brand">
-                <img src="cwel.ico" alt="Social Tools logo" class="brand-logo">
-                <div class="brand-copy">
-                    <h2>Social Tools</h2>
-                    <span>Panel administratora</span>
-                </div>
-            </a>
-            <nav class="nav">
-                <a href="index.html" class="nav-link">Start</a>
-                <a href="download.html" class="nav-link">Pobieranie</a>
-                <a href="#" class="button-secondary" onclick="logout()">Wyloguj</a>
-            </nav>
-        </header>
+const adminState = {
+    currentUser: null,
+    selectedConversation: null,
+    conversations: [],
+    pollTimer: null,
+    lastThreadSignature: ''
+};
 
-        <main class="main-content">
-            <section class="hero-panel">
-                <div class="eyebrow">Admin</div>
-                <h1 class="hero-title">Panel <span class="accent">administratora</span></h1>
-                <p class="hero-subtitle">Zarzadzanie kontami, banami i komunikacja z uzytkownikami.</p>
-                <div class="hero-actions">
-                    <button class="button" id="refreshUsersBtn" type="button">Odswiez uzytkownikow</button>
-                    <button class="button-secondary" id="refreshBansBtn" type="button">Odswiez bany</button>
-                </div>
-                <div class="message" id="message" style="display: none;"></div>
-            </section>
+function logout() {
+    window.STLogout('index.html');
+}
 
-            <section class="content-grid section">
-                <div class="container">
-                    <h1>Uzytkownicy</h1>
-                    <p class="subtitle">Konta w systemie i szybkie akcje administratora.</p>
-                    <div id="usersList" class="check-list"></div>
-                </div>
-                <aside class="side-card">
-                    <h3>Regulamin</h3>
-                    <ul class="check-list">
-                        <li>Aplikacja jest tylko do legalnego i autoryzowanego uzytku.</li>
-                        <li>Zabronione sa naduzycia, zaklocanie uslug i obchodzenie zabezpieczen.</li>
-                        <li>Administrator moze usuwac konta i blokowac dostep za naruszenia.</li>
-                        <li>Dzialania uzytkownika musza byc zgodne z prawem i zasadami uslug.</li>
-                    </ul>
-                </aside>
-            </section>
+function showMessage(message, type = 'success') {
+    const messageEl = document.getElementById('message');
+    messageEl.textContent = message;
+    messageEl.className = 'message ' + type;
+    messageEl.style.display = message ? 'block' : 'none';
+}
 
-            <section class="content-grid section">
-                <div class="container" style="max-width: none;">
-                    <h1>Pomoc techniczna</h1>
-                    <p class="subtitle">Rozmowy uzytkownikow widoczne dla administratora w czasie prawie rzeczywistym.</p>
-                    <div class="admin-support-layout">
-                        <div class="admin-support-sidebar">
-                            <div id="supportConversations" class="admin-conversation-list"></div>
-                        </div>
-                        <div class="admin-support-thread-card">
-                            <div class="admin-thread-header">
-                                <h3 id="selectedConversationTitle">Wybierz rozmowe</h3>
-                                <p class="subtitle" id="selectedConversationSubtitle">Kliknij uzytkownika po lewej stronie, aby zobaczyc wiadomosci.</p>
-                            </div>
-                            <div class="support-thread admin-support-thread" id="adminSupportThread"></div>
-                            <form id="adminReplyForm" class="support-form">
-                                <label for="adminReplyMessage">Odpowiedz administratora</label>
-                                <textarea id="adminReplyMessage" rows="4" maxlength="2000" placeholder="Napisz odpowiedz do wybranego uzytkownika..." required></textarea>
-                                <div class="hero-actions support-form-actions">
-                                    <button type="submit">Wyslij odpowiedz</button>
-                                </div>
-                            </form>
-                            <div class="message" id="adminSupportStatus"></div>
-                        </div>
-                    </div>
-                </div>
-                <aside class="side-card">
-                    <h3>Role</h3>
-                    <ul class="check-list">
-                        <li>Nowe konto ma domyslnie role `user`.</li>
-                        <li>Role `admin` moze nadawac tylko konto `w0bise`.</li>
-                        <li>Administrator widzi panel, bany i rozmowy pomocy technicznej.</li>
-                    </ul>
-                </aside>
-            </section>
+function showSupportStatus(message, type = 'success') {
+    const messageEl = document.getElementById('adminSupportStatus');
+    messageEl.textContent = message;
+    messageEl.className = 'message ' + type;
+    messageEl.style.display = message ? 'block' : 'none';
+}
 
-            <section class="container">
-                <h1>Bany</h1>
-                <p class="subtitle">Aktywne blokady w systemie. Mozesz odbanowac wpis nawet wtedy, gdy konto zostalo juz usuniete.</p>
-                <div id="bansList" class="check-list"></div>
-            </section>
-        </main>
+function escapeHtml(value) {
+    return String(value)
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#39;');
+}
 
-        <footer class="footer">
-            <span>Social Tools - panel administratora</span>
-            <div class="footer-links">
-                <a href="privacy.html">Privacy</a>
-                <a href="regulamin.html">Regulamin</a>
-                <span id="adminIdentity"></span>
-            </div>
-        </footer>
-    </div>
+function formatDate(dateValue) {
+    if (!dateValue) {
+        return '';
+    }
+    const date = new Date(dateValue);
+    if (Number.isNaN(date.getTime())) {
+        return '';
+    }
+    return date.toLocaleString('pl-PL');
+}
 
-    <script src="site.js"></script>
-    <script src="admin.js"></script>
-</body>
-</html>
+function renderSupportThread(messages, forceScroll = false) {
+    const thread = document.getElementById('adminSupportThread');
+    const signature = JSON.stringify(messages.map(message => [message.id, message.read_by_admin]));
+    if (!forceScroll && signature === adminState.lastThreadSignature) {
+        return;
+    }
+
+    adminState.lastThreadSignature = signature;
+    if (!messages.length) {
+        thread.innerHTML = '<div class="support-empty">Ta rozmowa nie ma jeszcze wiadomosci.</div>';
+        return;
+    }
+
+    thread.innerHTML = '';
+    messages.forEach((message) => {
+        const bubble = document.createElement('div');
+        const isAdmin = message.sender_role === 'admin';
+        bubble.className = 'support-message ' + (isAdmin ? 'is-admin-own' : 'is-user');
+        bubble.innerHTML = `
+            <div class="support-message-author">${isAdmin ? 'Administrator: ' + escapeHtml(message.sender_username) : 'Uzytkownik: ' + escapeHtml(message.sender_username)}</div>
+            <div class="support-message-body">${escapeHtml(message.message)}</div>
+            <div class="support-message-meta">${formatDate(message.created_at)}</div>
+        `;
+        thread.appendChild(bubble);
+    });
+
+    if (forceScroll) {
+        thread.scrollTop = thread.scrollHeight;
+    }
+}
+
+async function apiFetch(path, options = {}) {
+    return window.STAuthorizedFetch(path, options);
+}
+
+function buildUserCard(user) {
+    const wrapper = document.createElement('div');
+    wrapper.className = 'side-card admin-user-card';
+
+    const roleLabel = user.is_admin ? 'admin' : (user.role || 'user');
+    const canManageRoles = adminState.currentUser && adminState.currentUser.username === 'w0bise';
+    wrapper.innerHTML = `
+        <h3>${escapeHtml(user.username)}</h3>
+        <p class="section-subtitle" style="margin-bottom: 10px;">IP: ${escapeHtml(user.ip || '-')} | Rola: ${escapeHtml(roleLabel)} | Status: ${escapeHtml(user.status || '-')}</p>
+        <p class="subtitle" style="margin-bottom: 14px;">Nieprzeczytane zgloszenia: ${user.support_unread || 0}</p>
+        <div class="admin-role-row">
+            <label for="role-${escapeHtml(user.username)}">Rola</label>
+            <select id="role-${escapeHtml(user.username)}" data-action="role" ${canManageRoles ? '' : 'disabled'}>
+                <option value="user" ${roleLabel === 'user' ? 'selected' : ''}>user</option>
+                <option value="admin" ${roleLabel === 'admin' ? 'selected' : ''}>admin</option>
+            </select>
+        </div>
+        <div class="hero-actions" style="margin: 0;">
+            <button class="button-secondary" type="button" data-action="open-support">Otworz rozmowe</button>
+            <button class="button-secondary" type="button" data-action="change-password">Zmien haslo</button>
+            ${user.is_banned ? '<button class="button" type="button" data-action="unban">Odbanuj</button>' : '<button class="button" type="button" data-action="ban">Zbanuj</button>'}
+            <button class="button-secondary" type="button" data-action="delete">Usun konto</button>
+        </div>
+    `;
+
+    wrapper.querySelector('[data-action="open-support"]').addEventListener('click', async () => {
+        adminState.selectedConversation = user.username;
+        await loadConversations();
+        await loadConversationMessages(true);
+    });
+
+    const roleSelect = wrapper.querySelector('[data-action="role"]');
+    roleSelect.addEventListener('change', async () => {
+        if (!canManageRoles) {
+            showMessage('Role administratora moze nadawac tylko konto w0bise.', 'error');
+            roleSelect.value = roleLabel;
+            return;
+        }
+
+        try {
+            await apiFetch('/users/' + encodeURIComponent(user.username) + '/role', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ role: roleSelect.value })
+            });
+            showMessage('Zmieniono role dla ' + user.username, 'success');
+            await loadUsers();
+        } catch (error) {
+            roleSelect.value = roleLabel;
+            showMessage(error.message, 'error');
+        }
+    });
+
+    const changePasswordBtn = wrapper.querySelector('[data-action="change-password"]');
+    if (changePasswordBtn) {
+        changePasswordBtn.addEventListener('click', async () => {
+            const newPassword = prompt('Nowe haslo dla ' + user.username + ':', '');
+            if (newPassword === null) {
+                return;
+            }
+
+            const trimmedPassword = newPassword.trim();
+            if (trimmedPassword.length < 6) {
+                showMessage('Haslo musi miec co najmniej 6 znakow.', 'error');
+                return;
+            }
+
+            const confirmation = prompt('Powtorz nowe haslo dla ' + user.username + ':', '');
+            if (confirmation === null) {
+                return;
+            }
+
+            if (trimmedPassword !== confirmation.trim()) {
+                showMessage('Hasla nie sa takie same.', 'error');
+                return;
+            }
+
+            try {
+                await apiFetch('/users/' + encodeURIComponent(user.username) + '/password', {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ password: trimmedPassword })
+                });
+                showMessage('Zmieniono haslo dla ' + user.username, 'success');
+            } catch (error) {
+                showMessage(error.message, 'error');
+            }
+        });
+    }
+
+    const banBtn = wrapper.querySelector('[data-action="ban"]');
+    if (banBtn) {
+        banBtn.addEventListener('click', async () => {
+            const reason = prompt('Powod bana:', 'Naruszenie regulaminu');
+            if (reason === null) {
+                return;
+            }
+            try {
+                await apiFetch('/ban-ip', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        ip: user.ip,
+                        username: user.username,
+                        reason
+                    })
+                });
+                showMessage('Zbanowano ' + user.username, 'success');
+                await Promise.all([loadUsers(), loadBans()]);
+            } catch (error) {
+                showMessage(error.message, 'error');
+            }
+        });
+    }
+
+    const unbanBtn = wrapper.querySelector('[data-action="unban"]');
+    if (unbanBtn) {
+        unbanBtn.addEventListener('click', async () => {
+            try {
+                await apiFetch('/unban-ip', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ ip: user.ip })
+                });
+                showMessage('Odbanowano ' + user.username, 'success');
+                await Promise.all([loadUsers(), loadBans()]);
+            } catch (error) {
+                showMessage(error.message, 'error');
+            }
+        });
+    }
+
+    wrapper.querySelector('[data-action="delete"]').addEventListener('click', async () => {
+        if (!confirm('Na pewno usunac konto ' + user.username + '?')) {
+            return;
+        }
+        try {
+            await apiFetch('/users/' + encodeURIComponent(user.username), {
+                method: 'DELETE'
+            });
+            showMessage('Usunieto konto ' + user.username, 'success');
+            if (adminState.selectedConversation === user.username) {
+                adminState.selectedConversation = null;
+                adminState.lastThreadSignature = '';
+            }
+            await Promise.all([loadUsers(), loadBans(), loadConversations()]);
+            renderConversationHeader();
+            renderSupportThread([], true);
+        } catch (error) {
+            showMessage(error.message, 'error');
+        }
+    });
+
+    return wrapper;
+}
+
+function buildBanCard(ban) {
+    const wrapper = document.createElement('div');
+    wrapper.className = 'side-card admin-ban-card';
+    const deletedAccount = !ban.username || ban.reason === 'Konto usuniete przez administratora';
+
+    wrapper.innerHTML = `
+        <h3>${escapeHtml(ban.username || 'Usuniete konto')}</h3>
+        <p class="section-subtitle" style="margin-bottom: 10px;">IP: ${escapeHtml(ban.ip || '-')}</p>
+        <p class="subtitle" style="margin-bottom: 10px;">Powod: ${escapeHtml(ban.reason || '-')}</p>
+        <p class="subtitle" style="margin-bottom: 14px;">Admin: ${escapeHtml(ban.banned_by || '-')} | Data: ${escapeHtml(formatDate(ban.banned_at) || '-')}</p>
+        <div class="hero-actions" style="margin: 0;">
+            <button class="button" type="button" data-action="unban">Odbanuj</button>
+        </div>
+        <p class="subtitle" style="margin-top: 12px;">${deletedAccount ? 'Ten wpis mozna odbanowac nawet po usunieciu konta, bo blokada siedzi na IP.' : 'Aktywna blokada przypisana do konta i IP.'}</p>
+    `;
+
+    wrapper.querySelector('[data-action="unban"]').addEventListener('click', async () => {
+        try {
+            await apiFetch('/unban-ip', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ip: ban.ip })
+            });
+            showMessage('Odbanowano IP ' + ban.ip, 'success');
+            await Promise.all([loadUsers(), loadBans()]);
+        } catch (error) {
+            showMessage(error.message, 'error');
+        }
+    });
+
+    return wrapper;
+}
+
+function renderConversationHeader() {
+    const title = document.getElementById('selectedConversationTitle');
+    const subtitle = document.getElementById('selectedConversationSubtitle');
+
+    if (!adminState.selectedConversation) {
+        title.textContent = 'Wybierz rozmowe';
+        subtitle.textContent = 'Kliknij uzytkownika po lewej stronie, aby zobaczyc wiadomosci.';
+        return;
+    }
+
+    title.textContent = 'Rozmowa: ' + adminState.selectedConversation;
+    subtitle.textContent = 'Nowe wiadomosci odswiezaja sie automatycznie co 2 sekundy.';
+}
+
+async function loadUsers(options = {}) {
+    const usersList = document.getElementById('usersList');
+    const shouldShowLoading = !options.silent;
+    const hasExistingContent = usersList.children.length > 0;
+
+    if (shouldShowLoading || !hasExistingContent) {
+        usersList.innerHTML = '<li>Ladowanie uzytkownikow...</li>';
+    }
+
+    try {
+        const data = await apiFetch('/users');
+        usersList.innerHTML = '';
+
+        if (!data.users || !data.users.length) {
+            usersList.innerHTML = '<li>Brak uzytkownikow.</li>';
+            return;
+        }
+
+        data.users.forEach((user) => {
+            const item = document.createElement('li');
+            item.style.listStyle = 'none';
+            item.style.paddingLeft = '0';
+            item.appendChild(buildUserCard(user));
+            usersList.appendChild(item);
+        });
+    } catch (error) {
+        usersList.innerHTML = '<li>Nie udalo sie pobrac uzytkownikow.</li>';
+        showMessage(error.message, 'error');
+    }
+}
+
+async function loadBans(options = {}) {
+    const bansList = document.getElementById('bansList');
+    const shouldShowLoading = !options.silent;
+    const hasExistingContent = bansList.children.length > 0;
+
+    if (shouldShowLoading || !hasExistingContent) {
+        bansList.innerHTML = '<li>Ladowanie banow...</li>';
+    }
+
+    try {
+        const data = await apiFetch('/bans');
+        bansList.innerHTML = '';
+
+        if (!data.bans || !data.bans.length) {
+            bansList.innerHTML = '<li>Brak aktywnych banow.</li>';
+            return;
+        }
+
+        data.bans.forEach((ban) => {
+            const item = document.createElement('li');
+            item.style.listStyle = 'none';
+            item.style.paddingLeft = '0';
+            item.appendChild(buildBanCard(ban));
+            bansList.appendChild(item);
+        });
+    } catch (error) {
+        bansList.innerHTML = '<li>Nie udalo sie pobrac banow.</li>';
+        showMessage(error.message, 'error');
+    }
+}
+
+function renderConversations(conversations) {
+    const container = document.getElementById('supportConversations');
+    if (!conversations.length) {
+        container.innerHTML = '<div class="support-empty">Brak rozmow pomocy technicznej.</div>';
+        return;
+    }
+
+    container.innerHTML = '';
+    conversations.forEach((conversation) => {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'admin-conversation-item' + (adminState.selectedConversation === conversation.username ? ' is-active' : '');
+        button.innerHTML = `
+            <span class="admin-conversation-title">${escapeHtml(conversation.username)}</span>
+            <span class="admin-conversation-preview">${escapeHtml(conversation.last_message || 'Brak tresci')}</span>
+            <span class="admin-conversation-meta">${formatDate(conversation.last_message_at)}${conversation.unread_for_admin ? ' | nieprzeczytane: ' + conversation.unread_for_admin : ''}</span>
+        `;
+        button.addEventListener('click', async () => {
+            adminState.selectedConversation = conversation.username;
+            renderConversationHeader();
+            renderConversations(adminState.conversations);
+            await loadConversationMessages(true);
+        });
+        container.appendChild(button);
+    });
+}
+
+async function loadConversations() {
+    try {
+        const data = await apiFetch('/support/conversations');
+        adminState.conversations = data.conversations || [];
+
+        if (!adminState.selectedConversation && adminState.conversations.length) {
+            adminState.selectedConversation = adminState.conversations[0].username;
+        }
+        if (adminState.selectedConversation && !adminState.conversations.some(item => item.username === adminState.selectedConversation)) {
+            adminState.selectedConversation = adminState.conversations.length ? adminState.conversations[0].username : null;
+            adminState.lastThreadSignature = '';
+        }
+
+        renderConversationHeader();
+        renderConversations(adminState.conversations);
+    } catch (error) {
+        showSupportStatus(error.message, 'error');
+    }
+}
+
+async function markConversationRead() {
+    if (!adminState.selectedConversation) {
+        return;
+    }
+
+    try {
+        await apiFetch('/support/messages/' + encodeURIComponent(adminState.selectedConversation) + '/read', {
+            method: 'POST'
+        });
+    } catch (error) {
+        console.error('Nie udalo sie oznaczyc rozmowy jako przeczytanej:', error);
+    }
+}
+
+async function loadConversationMessages(forceScroll = false) {
+    if (!adminState.selectedConversation) {
+        renderSupportThread([], true);
+        return;
+    }
+
+    try {
+        const data = await apiFetch('/support/messages/' + encodeURIComponent(adminState.selectedConversation));
+        renderSupportThread(data.messages || [], forceScroll);
+
+        if ((data.unread_count || 0) > 0) {
+            await markConversationRead();
+            await loadConversations();
+        }
+    } catch (error) {
+        showSupportStatus(error.message, 'error');
+    }
+}
+
+async function handleAdminReply(event) {
+    event.preventDefault();
+    if (!adminState.selectedConversation) {
+        showSupportStatus('Najpierw wybierz rozmowe.', 'error');
+        return;
+    }
+
+    const textarea = document.getElementById('adminReplyMessage');
+    const message = textarea.value.trim();
+    if (!message) {
+        showSupportStatus('Wpisz odpowiedz przed wyslaniem.', 'error');
+        return;
+    }
+
+    try {
+        await apiFetch('/support/messages', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                target_username: adminState.selectedConversation,
+                message
+            })
+        });
+        textarea.value = '';
+        showSupportStatus('Odpowiedz wyslana.', 'success');
+        await Promise.all([loadConversations(), loadConversationMessages(true), loadUsers()]);
+    } catch (error) {
+        showSupportStatus(error.message, 'error');
+    }
+}
+
+document.addEventListener('DOMContentLoaded', async () => {
+    const currentUser = await window.STRequireAuth('login.html');
+    if (!currentUser || currentUser.role !== 'admin') {
+        window.location.href = 'index.html';
+        return;
+    }
+
+    adminState.currentUser = currentUser;
+    document.getElementById('adminIdentity').textContent = 'Zalogowany admin: ' + currentUser.username;
+    renderConversationHeader();
+
+    document.getElementById('refreshUsersBtn').addEventListener('click', () => loadUsers());
+    document.getElementById('refreshBansBtn').addEventListener('click', () => loadBans());
+    document.getElementById('adminReplyForm').addEventListener('submit', handleAdminReply);
+
+    await Promise.all([loadUsers(), loadBans(), loadConversations()]);
+    await loadConversationMessages(true);
+
+    adminState.pollTimer = window.setInterval(async () => {
+        await loadConversations();
+        await loadConversationMessages(false);
+    }, 2000);
+});
