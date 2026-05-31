@@ -9,6 +9,7 @@ const ADMIN_BOOTSTRAP = {
     username: process.env.ADMIN_BOOTSTRAP_USERNAME || 'w0bise',
     password: process.env.ADMIN_BOOTSTRAP_PASSWORD || ''
 };
+const SESSION_SECRET = process.env.SESSION_SECRET || process.env.ADMIN_BOOTSTRAP_PASSWORD || 'socialtool-session-secret';
 
 // KONFIGURACJA CORS
 const allowedOrigins = [
@@ -75,14 +76,18 @@ async function getConnection() {
 }
 
 function createSession(user) {
-    const token = crypto.randomBytes(32).toString('hex');
-    SESSION_TOKENS.set(token, {
+    const payload = Buffer.from(JSON.stringify({
         userId: user.id,
         username: user.username,
         role: user.role || 'user',
-        createdAt: Date.now()
-    });
-    return token;
+        iat: Date.now()
+    })).toString('base64url');
+    const signature = crypto
+        .createHmac('sha256', SESSION_SECRET)
+        .update(payload)
+        .digest('base64url');
+
+    return `${payload}.${signature}`;
 }
 
 function getBearerToken(req) {
@@ -99,8 +104,24 @@ async function getAuthenticatedUser(req, connection) {
         return null;
     }
 
-    const session = SESSION_TOKENS.get(token);
-    if (!session) {
+    const [payload, signature] = token.split('.');
+    if (!payload || !signature) {
+        return null;
+    }
+
+    const expectedSignature = crypto
+        .createHmac('sha256', SESSION_SECRET)
+        .update(payload)
+        .digest('base64url');
+
+    if (signature !== expectedSignature) {
+        return null;
+    }
+
+    let session;
+    try {
+        session = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8'));
+    } catch (error) {
         return null;
     }
 
@@ -110,16 +131,10 @@ async function getAuthenticatedUser(req, connection) {
     );
 
     if (!users.length) {
-        SESSION_TOKENS.delete(token);
         return null;
     }
 
     const user = users[0];
-    SESSION_TOKENS.set(token, {
-        ...session,
-        username: user.username,
-        role: user.role || 'user'
-    });
 
     return {
         token,
@@ -180,7 +195,6 @@ async function requireOwnerAdmin(req, res, connection) {
 const activeUsers = new Map();
 const BAN_LIST = new Map();
 const USER_MESSAGES = new Map();
-const SESSION_TOKENS = new Map();
 
 async function ensureColumnExists(connection, tableName, columnName, definition) {
     const [rows] = await connection.execute(
@@ -966,15 +980,6 @@ app.patch('/users/:username/role', async (req, res) => {
             'UPDATE users SET role = ? WHERE id = ?',
             [requestedRole, users[0].id]
         );
-
-        for (const [token, session] of SESSION_TOKENS.entries()) {
-            if (session.userId === users[0].id) {
-                SESSION_TOKENS.set(token, {
-                    ...session,
-                    role: requestedRole
-                });
-            }
-        }
 
         await connection.end();
         return res.json({
