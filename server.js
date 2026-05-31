@@ -999,6 +999,61 @@ app.patch('/users/:username/role', async (req, res) => {
     }
 });
 
+app.patch('/users/:username/password', async (req, res) => {
+    const targetUsername = req.params.username;
+    const requestedPassword = typeof req.body.password === 'string' ? req.body.password.trim() : '';
+
+    if (requestedPassword.length < 6) {
+        return res.status(400).json({
+            success: false,
+            message: 'Haslo musi miec co najmniej 6 znakow'
+        });
+    }
+
+    let connection;
+    try {
+        connection = await getConnection();
+        const adminUser = await requireAdmin(req, res, connection);
+        if (!adminUser) {
+            await connection.end();
+            return;
+        }
+
+        const [users] = await connection.execute(
+            'SELECT id, username FROM users WHERE username = ? LIMIT 1',
+            [targetUsername]
+        );
+
+        if (!users.length) {
+            await connection.end();
+            return res.status(404).json({
+                success: false,
+                message: 'Uzytkownik nie znaleziony'
+            });
+        }
+
+        await connection.execute(
+            'UPDATE users SET password = ? WHERE id = ?',
+            [requestedPassword, users[0].id]
+        );
+
+        await connection.end();
+        return res.json({
+            success: true,
+            message: `Haslo dla ${targetUsername} zostalo zmienione`
+        });
+    } catch (error) {
+        if (connection) {
+            await connection.end();
+        }
+        console.error('Blad zmiany hasla:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Blad serwera'
+        });
+    }
+});
+
 app.get('/support/conversations', async (req, res) => {
     let connection;
     try {
@@ -1289,6 +1344,7 @@ app.get('/', (req, res) => {
             'GET /check-logs': 'Lista użytkowników (login)',
             'GET /users': 'Lista użytkowników (admin)',
             'DELETE /users/:username': 'Usuń użytkownika',
+            'PATCH /users/:username/password': 'Zmien haslo uzytkownika',
             'POST /update-status': 'Aktualizuj status',
             'GET /status': 'Statusy online/offline',
             'POST /ban-ip': 'Zbanuj IP',
@@ -1299,6 +1355,7 @@ app.get('/', (req, res) => {
             'POST /messages/:username/read': 'Oznacz jako przeczytane',
             'GET /auth/me': 'Sprawdz aktualna sesje',
             'PATCH /users/:username/role': 'Zmien role uzytkownika',
+            'PATCH /users/:username/password': 'Zmien haslo uzytkownika',
             'GET /support/conversations': 'Lista rozmow pomocy technicznej',
             'GET /support/messages/:username': 'Pobierz rozmowe pomocy technicznej',
             'POST /support/messages': 'Wyslij wiadomosc pomocy technicznej',
