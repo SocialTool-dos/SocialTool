@@ -805,6 +805,12 @@ button:active {
     justify-content: center;
     padding: 0;
     box-shadow: 0 18px 40px rgba(116, 90, 255, 0.42);
+    transition: transform 0.22s ease, box-shadow 0.22s ease;
+}
+
+.support-fab.is-open {
+    transform: scale(0.96);
+    box-shadow: 0 12px 28px rgba(116, 90, 255, 0.28);
 }
 
 .support-fab-icon {
@@ -839,8 +845,11 @@ button:active {
     border: 1px solid var(--panel-border);
     border-radius: 28px;
     box-shadow: var(--shadow);
-    transform: translateX(calc(100% + 30px));
-    transition: transform 0.28s ease;
+    transform: translateY(18px) scale(0.96);
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transition: transform 0.28s ease, opacity 0.28s ease, visibility 0.28s ease;
     z-index: 1200;
     display: grid;
     grid-template-rows: auto 1fr auto auto;
@@ -848,7 +857,19 @@ button:active {
 }
 
 .support-drawer.is-open {
-    transform: translateX(0);
+    transform: translateY(0) scale(1);
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+}
+
+.support-drawer-compact {
+    top: auto;
+    right: 24px;
+    bottom: 104px;
+    width: min(400px, calc(100vw - 32px));
+    height: min(560px, calc(100vh - 140px));
+    border-radius: 24px;
 }
 
 .support-drawer-header,
@@ -1083,6 +1104,14 @@ button:active {
         top: 16px;
         right: 16px;
         height: calc(100vh - 32px);
+    }
+
+    .support-drawer-compact {
+        top: auto;
+        right: 16px;
+        bottom: 90px;
+        width: min(400px, calc(100vw - 24px));
+        height: min(520px, calc(100vh - 120px));
     }
 
     .support-fab {
