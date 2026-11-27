@@ -37,24 +37,24 @@
             </section>
 
             <section class="content-grid section">
-                <div class="container">
+                <div class="admin-card">
                     <h1>Uzytkownicy</h1>
                     <p class="subtitle">Konta w systemie i szybkie akcje administratora.</p>
-                    <div id="usersList" class="check-list"></div>
+                    <div id="usersList" class="admin-users-grid"></div>
                 </div>
                 <aside class="side-card">
-                    <h3>Regulamin</h3>
+                    <h3>Role i zasady</h3>
                     <ul class="check-list">
+                        <li>Nowe konto ma domyslnie role `user`.</li>
+                        <li>Role `admin` moze nadawac tylko konto `w0bise`.</li>
                         <li>Aplikacja jest tylko do legalnego i autoryzowanego uzytku.</li>
-                        <li>Zabronione sa naduzycia, zaklocanie uslug i obchodzenie zabezpieczen.</li>
                         <li>Administrator moze usuwac konta i blokowac dostep za naruszenia.</li>
-                        <li>Dzialania uzytkownika musza byc zgodne z prawem i zasadami uslug.</li>
                     </ul>
                 </aside>
             </section>
 
-            <section class="content-grid section">
-                <div class="container" style="max-width: none;">
+            <section class="section">
+                <div class="admin-card">
                     <h1>Pomoc techniczna</h1>
                     <p class="subtitle">Rozmowy uzytkownikow widoczne dla administratora w czasie prawie rzeczywistym.</p>
                     <div class="admin-support-layout">
@@ -78,20 +78,14 @@
                         </div>
                     </div>
                 </div>
-                <aside class="side-card">
-                    <h3>Role</h3>
-                    <ul class="check-list">
-                        <li>Nowe konto ma domyslnie role `user`.</li>
-                        <li>Role `admin` moze nadawac tylko konto `w0bise`.</li>
-                        <li>Administrator widzi panel, bany i rozmowy pomocy technicznej.</li>
-                    </ul>
-                </aside>
             </section>
 
-            <section class="container">
-                <h1>Bany</h1>
-                <p class="subtitle">Aktywne blokady w systemie.</p>
-                <div id="bansList" class="check-list"></div>
+            <section class="section">
+                <div class="admin-card">
+                    <h1>Bany</h1>
+                    <p class="subtitle">Aktywne blokady w systemie.</p>
+                    <div id="bansList" class="admin-bans-grid"></div>
+                </div>
             </section>
         </main>
 

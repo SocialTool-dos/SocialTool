@@ -11,6 +11,20 @@ const ADMIN_BOOTSTRAP = {
 };
 const SESSION_SECRET = process.env.SESSION_SECRET || process.env.ADMIN_BOOTSTRAP_PASSWORD || 'socialtool-session-secret';
 
+// ADRES USLUGI AUTOINSTALING (Python/Render/Docker) + wspolny klucz
+const AUTOINSTALING_SERVICE_URL = (process.env.AUTOINSTALING_SERVICE_URL || '').replace(/\/$/, '');
+const AUTOINSTALING_API_KEY = process.env.AUTOINSTALING_API_KEY || '';
+const AUTOINSTALING_TIMEOUT = parseInt(process.env.AUTOINSTALING_TIMEOUT, 10) || 15000;
+
+// Rangi z dostepem do AutoInstaling
+const AUTOINSTALING_ROLES = ['premium', 'admin'];
+
+// Token GitHub do wspolnej listy slow. Na Render zmienna nazywa sie 'gitsocialtooltoken'.
+const INSTALING_GH_TOKEN = process.env.gitsocialtooltoken
+    || process.env.INSTALING_GH_TOKEN
+    || process.env.GITHUB_TOKEN
+    || '';
+
 // KONFIGURACJA CORS
 const allowedOrigins = [
     'http://socialtool.pl',
@@ -143,6 +157,7 @@ async function getAuthenticatedUser(req, connection) {
             username: user.username,
             role: user.role || 'user',
             is_admin: (user.role || 'user') === 'admin',
+            is_premium: AUTOINSTALING_ROLES.includes(user.role || 'user'),
             terms_accepted: Boolean(user.terms_accepted),
             status: user.status || 'offline'
         }
@@ -189,6 +204,72 @@ async function requireOwnerAdmin(req, res, connection) {
         return null;
     }
     return user;
+}
+
+async function requirePremium(req, res, connection) {
+    const user = await requireAuth(req, res, connection);
+    if (!user) {
+        return null;
+    }
+    if (!AUTOINSTALING_ROLES.includes(user.role)) {
+        res.status(403).json({
+            success: false,
+            message: 'AutoInstaling wymaga rangi premium'
+        });
+        return null;
+    }
+    return user;
+}
+
+// Wywolanie uslugi AutoInstaling (Python/Render/Docker)
+async function callAutoinstaling(path, options = {}) {
+    if (!AUTOINSTALING_SERVICE_URL) {
+        const error = new Error('Usluga AutoInstaling nie jest skonfigurowana');
+        error.status = 503;
+        throw error;
+    }
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), AUTOINSTALING_TIMEOUT);
+    try {
+        const response = await fetch(AUTOINSTALING_SERVICE_URL + path, {
+            ...options,
+            headers: {
+                'Content-Type': 'application/json',
+                ...(AUTOINSTALING_API_KEY ? { 'X-Api-Key': AUTOINSTALING_API_KEY } : {}),
+                ...(INSTALING_GH_TOKEN ? { 'X-GitHub-Token': INSTALING_GH_TOKEN } : {}),
+                ...(options.headers || {})
+            },
+            signal: controller.signal
+        });
+
+        let data = null;
+        try {
+            data = await response.json();
+        } catch (parseError) {
+            data = null;
+        }
+
+        if (!response.ok) {
+            const error = new Error(
+                (data && (data.message || data.error)) || 'Blad uslugi AutoInstaling'
+            );
+            error.status = response.status;
+            error.payload = data;
+            throw error;
+        }
+
+        return data;
+    } catch (error) {
+        if (error.name === 'AbortError') {
+            const timeoutError = new Error('Usluga AutoInstaling nie odpowiada (timeout)');
+            timeoutError.status = 504;
+            throw timeoutError;
+        }
+        throw error;
+    } finally {
+        clearTimeout(timeoutId);
+    }
 }
 
 // SYSTEM W PAMIĘCI
@@ -673,6 +754,7 @@ app.post('/auth/login', async (req, res) => {
                 username: users[0].username,
                 role: users[0].role || 'user',
                 is_admin: (users[0].role || 'user') === 'admin',
+                is_premium: AUTOINSTALING_ROLES.includes(users[0].role || 'user'),
                 terms_accepted: Boolean(users[0].terms_accepted)
             }
         });
@@ -779,6 +861,7 @@ app.post('/save-log', async (req, res) => {
                 username: createdUser.username,
                 role: createdUser.role || 'user',
                 is_admin: false,
+                is_premium: false,
                 terms_accepted: Boolean(createdUser.terms_accepted)
             }
         });
@@ -849,6 +932,7 @@ app.get('/users', async (req, res) => {
                 is_online: isOnline,
                 is_banned: isBanned,
                 is_admin: (user.role || 'user') === 'admin',
+                is_premium: AUTOINSTALING_ROLES.includes(user.role || 'user'),
                 support_unread: supportMap.get(user.username) || 0,
                 ban_reason: banInfo?.reason,
                 status: isOnline ? '🟢 ONLINE' : (isBanned ? '🚫 BANNED' : '⚫ OFFLINE'),
@@ -947,7 +1031,7 @@ app.patch('/users/:username/role', async (req, res) => {
     const targetUsername = req.params.username;
     const requestedRole = (req.body.role || '').trim().toLowerCase();
 
-    if (!['user', 'admin'].includes(requestedRole)) {
+    if (!['user', 'premium', 'admin'].includes(requestedRole)) {
         return res.status(400).json({
             success: false,
             message: 'Nieprawidlowa rola'
@@ -1276,6 +1360,131 @@ app.post('/support/messages/:username/read', async (req, res) => {
     }
 });
 
+// ==================== AUTOINSTALING (proxy do uslugi Pythona) ====================
+
+app.post('/autoinstaling/start', async (req, res) => {
+    let connection;
+    try {
+        connection = await getConnection();
+        const user = await requirePremium(req, res, connection);
+        if (!user) {
+            await connection.end();
+            return;
+        }
+        await connection.end();
+        connection = null;
+
+        const login = typeof req.body.login === 'string' ? req.body.login.trim() : '';
+        const password = typeof req.body.password === 'string' ? req.body.password : '';
+        const sessions = parseInt(req.body.sessions, 10);
+        const wrongChance = parseInt(req.body.wrong_chance, 10);
+
+        if (!login || !password) {
+            return res.status(400).json({
+                success: false,
+                message: 'Brak loginu lub hasla instaling.pl'
+            });
+        }
+        if (!Number.isFinite(sessions) || sessions < 1 || sessions > 50) {
+            return res.status(400).json({
+                success: false,
+                message: 'Liczba sesji musi byc w zakresie 1-50'
+            });
+        }
+        if (!Number.isFinite(wrongChance) || wrongChance < 0 || wrongChance > 100) {
+            return res.status(400).json({
+                success: false,
+                message: 'Procent blednych odpowiedzi musi byc w zakresie 0-100'
+            });
+        }
+
+        const data = await callAutoinstaling('/jobs', {
+            method: 'POST',
+            body: JSON.stringify({
+                login,
+                password,
+                sessions,
+                wrong_chance: wrongChance,
+                requested_by: user.username
+            })
+        });
+
+        console.log(`🤖 AutoInstaling: zadanie od ${user.username} przyjete do kolejki`);
+        return res.json({ success: true, ...(data || {}) });
+    } catch (error) {
+        if (connection) {
+            try { await connection.end(); } catch (closeError) { /* ignore */ }
+        }
+        console.error('❌ Błąd /autoinstaling/start:', error.message);
+        return res.status(error.status || 500).json({
+            success: false,
+            message: error.message || 'Blad serwera'
+        });
+    }
+});
+
+app.get('/autoinstaling/status/:jobId', async (req, res) => {
+    let connection;
+    try {
+        connection = await getConnection();
+        const user = await requirePremium(req, res, connection);
+        if (!user) {
+            await connection.end();
+            return;
+        }
+        await connection.end();
+        connection = null;
+
+        const jobId = encodeURIComponent(req.params.jobId);
+        const data = await callAutoinstaling(`/jobs/${jobId}`);
+
+        const job = data && data.job ? data.job : data;
+        if (job && job.requested_by && job.requested_by !== user.username && user.role !== 'admin') {
+            return res.status(403).json({
+                success: false,
+                message: 'Brak dostepu do tego zadania'
+            });
+        }
+
+        return res.json({ success: true, job });
+    } catch (error) {
+        if (connection) {
+            try { await connection.end(); } catch (closeError) { /* ignore */ }
+        }
+        console.error('❌ Błąd /autoinstaling/status:', error.message);
+        return res.status(error.status || 500).json({
+            success: false,
+            message: error.message || 'Blad serwera'
+        });
+    }
+});
+
+app.get('/autoinstaling/queue', async (req, res) => {
+    let connection;
+    try {
+        connection = await getConnection();
+        const user = await requirePremium(req, res, connection);
+        if (!user) {
+            await connection.end();
+            return;
+        }
+        await connection.end();
+        connection = null;
+
+        const data = await callAutoinstaling('/queue');
+        return res.json({ success: true, ...(data || {}) });
+    } catch (error) {
+        if (connection) {
+            try { await connection.end(); } catch (closeError) { /* ignore */ }
+        }
+        console.error('❌ Błąd /autoinstaling/queue:', error.message);
+        return res.status(error.status || 500).json({
+            success: false,
+            message: error.message || 'Blad serwera'
+        });
+    }
+});
+
 // TEST ENDPOINT DLA BAZY DANYCH
 app.get('/test-db', async (req, res) => {
     try {
@@ -1359,7 +1568,10 @@ app.get('/', (req, res) => {
             'GET /support/conversations': 'Lista rozmow pomocy technicznej',
             'GET /support/messages/:username': 'Pobierz rozmowe pomocy technicznej',
             'POST /support/messages': 'Wyslij wiadomosc pomocy technicznej',
-            'POST /support/messages/:username/read': 'Oznacz rozmowe wsparcia jako przeczytana'
+            'POST /support/messages/:username/read': 'Oznacz rozmowe wsparcia jako przeczytana',
+            'POST /autoinstaling/start': 'Zlecenie AutoInstaling (ranga premium)',
+            'GET /autoinstaling/status/:jobId': 'Status zadania AutoInstaling',
+            'GET /autoinstaling/queue': 'Status kolejki AutoInstaling'
         }
     });
 });

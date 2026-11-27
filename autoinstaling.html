@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AutoInstaling - Social Tools</title>
+    <link rel="icon" href="https://github.com/M1DES1/social-tools/raw/refs/heads/main/cwel.ico" type="image/x-icon">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="page-shell">
+        <header class="header">
+            <a href="index.html" class="brand">
+                <img src="cwel.ico" alt="Social Tools logo" class="brand-logo">
+                <div class="brand-copy">
+                    <h2>Social Tools</h2>
+                    <span>AutoInstaling</span>
+                </div>
+            </a>
+            <nav class="nav">
+                <a href="index.html" class="nav-link">Strona glowna</a>
+                <a href="download.html" class="nav-link">Pobierz</a>
+                <a href="#" class="nav-link" onclick="logout()">Wyloguj</a>
+            </nav>
+        </header>
+
+        <main class="auth-page">
+            <div class="auth-layout">
+                <section class="auth-showcase hero-panel">
+                    <div class="eyebrow">AutoInstaling</div>
+                    <h1 class="hero-title">Automatyczne <span class="accent">sesje</span></h1>
+                    <p class="hero-subtitle">Zaloguj sie do instaling.pl, a serwer rozwiaze sesje za Ciebie.</p>
+                    <div class="logo-orb">
+                        <img src="cwel.ico" alt="Social Tools">
+                    </div>
+                    <ul class="check-list">
+                        <li>Kolejka bez lagow</li>
+                        <li>Ustawiasz liczbe sesji</li>
+                        <li>Ustawiasz % blednych odpowiedzi</li>
+                    </ul>
+                </section>
+
+                <section class="container">
+                    <h1>AutoInstaling</h1>
+                    <p class="subtitle">Dostepne tylko dla rangi premium.</p>
+
+                    <div class="premium-gate" id="premiumGate" hidden>
+                        <p class="message error" id="premiumGateMessage">Twoje konto nie ma rangi premium.</p>
+                        <p class="subtitle">AutoInstaling jest dostepny dla rangi <strong>premium</strong>. Napisz do administracji, aby ja otrzymac.</p>
+                    </div>
+
+                    <form id="autoinstalingForm">
+                        <div class="form-group">
+                            <label for="instalingLogin">Login instaling.pl (e-mail)</label>
+                            <input type="text" id="instalingLogin" name="instalingLogin" autocomplete="off" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="instalingPassword">Haslo instaling.pl</label>
+                            <input type="password" id="instalingPassword" name="instalingPassword" autocomplete="off" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="sessions">Liczba sesji</label>
+                            <input type="number" id="sessions" name="sessions" min="1" max="50" value="1" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="wrongChance">% blednych odpowiedzi (0-100)</label>
+                            <input type="number" id="wrongChance" name="wrongChance" min="0" max="100" value="0" required>
+                        </div>
+                        <button type="submit" id="startBtn">Zaloguj</button>
+                    </form>
+
+                    <div class="loading" id="loading">
+                        <div class="spinner"></div>
+                        <p>Wysylanie zadania do serwera...</p>
+                    </div>
+
+                    <div class="message" id="message"></div>
+
+                    <section class="job-panel" id="jobPanel" hidden>
+                        <h2 class="section-title" style="font-size: 1.2rem;">Status zadania</h2>
+                        <p class="subtitle" id="jobSummary">Oczekiwanie na dane...</p>
+                        <div class="job-meta">
+                            <span class="meta-pill" id="jobStatusPill">-</span>
+                            <span class="meta-pill" id="jobPositionPill">Kolejka: -</span>
+                        </div>
+                        <div class="job-log" id="jobLog"></div>
+                        <div class="hero-actions" style="margin-top: 14px;">
+                            <button type="button" class="button-secondary" id="refreshJobBtn">Odswiez status</button>
+                            <button type="button" class="button-secondary" id="newJobBtn">Nowe zadanie</button>
+                        </div>
+                    </section>
+                </section>
+            </div>
+        </main>
+    </div>
+
+    <style>
+        .premium-gate { margin-bottom: 18px; }
+        .job-panel { margin-top: 26px; }
+        .job-meta { display: flex; gap: 8px; flex-wrap: wrap; margin: 12px 0; }
+        .job-log {
+            background: rgba(10, 10, 20, 0.75);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 12px;
+            padding: 12px 14px;
+            max-height: 320px;
+            overflow-y: auto;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            font-size: 0.82rem;
+            line-height: 1.5;
+            white-space: pre-wrap;
+            color: #d4d4d8;
+        }
+    </style>
+
+    <script src="site.js"></script>
+    <script src="autoinstaling.js"></script>
+</body>
+</html>

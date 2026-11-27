@@ -93,6 +93,7 @@ function buildUserCard(user) {
             <label for="role-${escapeHtml(user.username)}">Rola</label>
             <select id="role-${escapeHtml(user.username)}" data-action="role" ${canManageRoles ? '' : 'disabled'}>
                 <option value="user" ${roleLabel === 'user' ? 'selected' : ''}>user</option>
+                <option value="premium" ${roleLabel === 'premium' ? 'selected' : ''}>premium</option>
                 <option value="admin" ${roleLabel === 'admin' ? 'selected' : ''}>admin</option>
             </select>
         </div>
@@ -113,7 +114,7 @@ function buildUserCard(user) {
     const roleSelect = wrapper.querySelector('[data-action="role"]');
     roleSelect.addEventListener('change', async () => {
         if (!canManageRoles) {
-            showMessage('Role administratora moze nadawac tylko konto w0bise.', 'error');
+            showMessage('Role admina i premium moze nadawac tylko konto w0bise.', 'error');
             roleSelect.value = roleLabel;
             return;
         }
@@ -455,7 +456,82 @@ async function handleAdminReply(event) {
     }
 }
 
+const ADMIN_DEMO_DATA = {
+    users: [
+        { username: 'w0bise', ip: '82.145.10.23', role: 'admin', is_admin: true, status: 'aktywne', support_unread: 0, is_banned: false },
+        { username: 'kamil99', ip: '188.33.4.9', role: 'user', is_admin: false, status: 'aktywne', support_unread: 2, is_banned: false },
+        { username: 'marta_x', ip: '45.12.88.201', role: 'user', is_admin: false, status: 'aktywne', support_unread: 0, is_banned: true }
+    ],
+    bans: [
+        { username: 'marta_x', ip: '45.12.88.201', reason: 'Spam na czacie pomocy', banned_by: 'w0bise', banned_at: '2026-11-27T18:24:00.000Z' }
+    ],
+    conversations: [
+        { username: 'kamil99', last_message: 'Nie dziala mi AutoKurs po aktualizacji', last_message_at: '2026-11-28T09:12:00.000Z', unread_for_admin: 2 }
+    ],
+    messages: {
+        kamil99: [
+            { id: 1, sender_username: 'kamil99', sender_role: 'user', message: 'Czesc, po ostatniej aktualizacji nie dziala mi AutoKurs. Wyskakuje blad przy instalacji.', created_at: '2026-11-28T09:10:00.000Z' },
+            { id: 2, sender_username: 'kamil99', sender_role: 'user', message: 'Probuje tez odpalic nmap i tez sie wywala.', created_at: '2026-11-28T09:12:00.000Z' },
+            { id: 3, sender_username: 'w0bise', sender_role: 'admin', message: 'Hej, juz sprawdzam. Zrob prosze reinstall z nowego instalatora.', created_at: '2026-11-28T09:20:00.000Z' }
+        ]
+    }
+};
+
+function enterAdminDemoMode() {
+    adminState.currentUser = { username: 'w0bise', role: 'admin' };
+
+    apiFetch = async () => ({ success: true, message: 'Tryb demo' });
+
+    loadUsers = async () => {
+        const usersList = document.getElementById('usersList');
+        usersList.innerHTML = '';
+        ADMIN_DEMO_DATA.users.forEach((user) => {
+            const item = document.createElement('li');
+            item.appendChild(buildUserCard(user));
+            usersList.appendChild(item);
+        });
+    };
+
+    loadBans = async () => {
+        const bansList = document.getElementById('bansList');
+        bansList.innerHTML = '';
+        ADMIN_DEMO_DATA.bans.forEach((ban) => {
+            const item = document.createElement('li');
+            item.appendChild(buildBanCard(ban));
+            bansList.appendChild(item);
+        });
+    };
+
+    loadConversations = async () => {
+        adminState.conversations = ADMIN_DEMO_DATA.conversations;
+        if (!adminState.selectedConversation) {
+            adminState.selectedConversation = 'kamil99';
+        }
+        renderConversationHeader();
+        renderConversations(adminState.conversations);
+    };
+
+    loadConversationMessages = async () => {
+        renderSupportThread(ADMIN_DEMO_DATA.messages[adminState.selectedConversation] || [], true);
+    };
+
+    document.getElementById('adminIdentity').textContent = 'Zalogowany admin: w0bise (tryb demo)';
+    document.getElementById('refreshUsersBtn').addEventListener('click', () => loadUsers());
+    document.getElementById('refreshBansBtn').addEventListener('click', () => loadBans());
+    document.getElementById('adminReplyForm').addEventListener('submit', handleAdminReply);
+
+    loadUsers();
+    loadBans();
+    loadConversations();
+    loadConversationMessages();
+}
+
 document.addEventListener('DOMContentLoaded', async () => {
+    if (new URLSearchParams(window.location.search).has('demo')) {
+        enterAdminDemoMode();
+        return;
+    }
+
     const currentUser = await window.STRequireAuth('login.html');
     if (!currentUser || currentUser.role !== 'admin') {
         window.location.href = 'index.html';

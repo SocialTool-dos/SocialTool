@@ -290,6 +290,43 @@ function renderAuthenticatedSupportState(currentUser) {
     }
 }
 
+function initSupportFabFollow(fab) {
+    if (!fab) {
+        return;
+    }
+
+    let lastY = window.scrollY;
+    let shift = 0;
+    let target = 0;
+    let rafId = null;
+
+    function animate() {
+        shift += (target - shift) * 0.18;
+        target *= 0.88;
+        fab.style.setProperty('--fab-shift', shift.toFixed(2) + 'px');
+
+        if (Math.abs(target) > 0.2 || Math.abs(shift) > 0.2) {
+            rafId = window.requestAnimationFrame(animate);
+        } else {
+            shift = 0;
+            target = 0;
+            fab.style.setProperty('--fab-shift', '0px');
+            rafId = null;
+        }
+    }
+
+    window.addEventListener('scroll', () => {
+        const y = window.scrollY;
+        const delta = y - lastY;
+        lastY = y;
+        target = Math.max(-32, Math.min(32, target + delta * 0.42));
+
+        if (!rafId) {
+            rafId = window.requestAnimationFrame(animate);
+        }
+    }, { passive: true });
+}
+
 async function initializeSupportWidget() {
     if (supportState.initialized) {
         return;
@@ -306,6 +343,7 @@ async function initializeSupportWidget() {
     }
 
     toggleBtn.addEventListener('click', () => toggleSupportDrawer());
+    initSupportFabFollow(toggleBtn);
     closeBtn.addEventListener('click', () => toggleSupportDrawer(false));
     if (backdrop) {
         backdrop.addEventListener('click', () => toggleSupportDrawer(false));
