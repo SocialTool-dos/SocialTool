@@ -12,7 +12,9 @@ const ADMIN_BOOTSTRAP = {
 const SESSION_SECRET = process.env.SESSION_SECRET || process.env.ADMIN_BOOTSTRAP_PASSWORD || 'socialtool-session-secret';
 
 // ADRES USLUGI AUTOINSTALING (Python/Render/Docker) + wspolny klucz
-const AUTOINSTALING_SERVICE_URL = (process.env.AUTOINSTALING_SERVICE_URL || '').replace(/\/$/, '');
+const AUTOINSTALING_SERVICE_URL = (
+    process.env.AUTOINSTALING_SERVICE_URL || 'https://autoinstalingsocialtool.onrender.com'
+).replace(/\/$/, '');
 const AUTOINSTALING_API_KEY = process.env.AUTOINSTALING_API_KEY || '';
 const AUTOINSTALING_TIMEOUT = parseInt(process.env.AUTOINSTALING_TIMEOUT, 10) || 15000;
 
