@@ -16,7 +16,12 @@ const AUTOINSTALING_SERVICE_URL = (
     process.env.AUTOINSTALING_SERVICE_URL || 'https://autoinstalingsocialtool.onrender.com'
 ).replace(/\/$/, '');
 const AUTOINSTALING_API_KEY = process.env.AUTOINSTALING_API_KEY || '';
-const AUTOINSTALING_TIMEOUT = parseInt(process.env.AUTOINSTALING_TIMEOUT, 10) || 15000;
+// Render Free usypia usluge po ~15 min bezczynnosci, wiec timeout musi pokryc zimny start.
+const AUTOINSTALING_TIMEOUT = parseInt(process.env.AUTOINSTALING_TIMEOUT, 10) || 60000;
+// Ile maksymalnie czekamy, az uspiona usluga sie wybudzi (warm-up).
+const AUTOINSTALING_WARMUP_TIMEOUT = parseInt(process.env.AUTOINSTALING_WARMUP_TIMEOUT, 10) || 90000;
+// Opcjonalny keep-alive: co ile ms pingowac /health (0 = wylaczony).
+const AUTOINSTALING_KEEPALIVE_MS = parseInt(process.env.AUTOINSTALING_KEEPALIVE_MS, 10) || 0;
 
 // Rangi z dostepem do AutoInstaling
 const AUTOINSTALING_ROLES = ['premium', 'admin'];
@@ -193,21 +198,6 @@ async function requireAdmin(req, res, connection) {
     return user;
 }
 
-async function requireOwnerAdmin(req, res, connection) {
-    const user = await requireAdmin(req, res, connection);
-    if (!user) {
-        return null;
-    }
-    if (user.username !== ADMIN_BOOTSTRAP.username) {
-        res.status(403).json({
-            success: false,
-            message: `Tylko konto ${ADMIN_BOOTSTRAP.username} moze nadawac role administratora`
-        });
-        return null;
-    }
-    return user;
-}
-
 async function requirePremium(req, res, connection) {
     const user = await requireAuth(req, res, connection);
     if (!user) {
@@ -224,11 +214,21 @@ async function requirePremium(req, res, connection) {
 }
 
 // Wywolanie uslugi AutoInstaling (Python/Render/Docker)
-async function callAutoinstaling(path, options = {}) {
+async function callAutoinstaling(path, options = {}, config = {}) {
     if (!AUTOINSTALING_SERVICE_URL) {
         const error = new Error('Usluga AutoInstaling nie jest skonfigurowana');
         error.status = 503;
         throw error;
+    }
+
+    // Przy zleceniu zadania najpierw wybudzamy uspiona usluge (Render Free).
+    if (config.wake) {
+        const awake = await ensureAutoinstalingAwake();
+        if (!awake) {
+            const wakeError = new Error('Nie udalo sie wybudzic uslugi AutoInstaling');
+            wakeError.status = 503;
+            throw wakeError;
+        }
     }
 
     const controller = new AbortController();
@@ -271,6 +271,61 @@ async function callAutoinstaling(path, options = {}) {
         throw error;
     } finally {
         clearTimeout(timeoutId);
+    }
+}
+
+function delay(ms) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+// Pojedynczy ping /health. Zwraca true tylko gdy usluga odpowiedziala.
+async function pingAutoinstaling(timeoutMs) {
+    if (!AUTOINSTALING_SERVICE_URL) return false;
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+        const response = await fetch(AUTOINSTALING_SERVICE_URL + '/health', {
+            headers: {
+                ...(AUTOINSTALING_API_KEY ? { 'X-Api-Key': AUTOINSTALING_API_KEY } : {})
+            },
+            signal: controller.signal
+        });
+        return response.ok;
+    } catch (error) {
+        return false;
+    } finally {
+        clearTimeout(timeoutId);
+    }
+}
+
+// Wybudzenie uspionej uslugi (Render Free) przed przyjeciem zadania.
+let autoinstalingWarmupPromise = null;
+
+async function ensureAutoinstalingAwake() {
+    if (!AUTOINSTALING_SERVICE_URL) return false;
+    if (autoinstalingWarmupPromise) return autoinstalingWarmupPromise;
+
+    autoinstalingWarmupPromise = (async () => {
+        if (await pingAutoinstaling(AUTOINSTALING_TIMEOUT)) return true;
+
+        console.log('⏳ AutoInstaling: usluga uspiona, wybudzam...');
+        const deadline = Date.now() + AUTOINSTALING_WARMUP_TIMEOUT;
+        while (Date.now() < deadline) {
+            if (await pingAutoinstaling(AUTOINSTALING_TIMEOUT)) {
+                console.log('✅ AutoInstaling: usluga wybudzona');
+                return true;
+            }
+            await delay(3000);
+        }
+        console.warn('⚠️ AutoInstaling: nie udalo sie wybudzic uslugi');
+        return false;
+    })();
+
+    try {
+        return await autoinstalingWarmupPromise;
+    } finally {
+        autoinstalingWarmupPromise = null;
     }
 }
 
@@ -1043,10 +1098,30 @@ app.patch('/users/:username/role', async (req, res) => {
     let connection;
     try {
         connection = await getConnection();
-        const ownerAdmin = await requireOwnerAdmin(req, res, connection);
-        if (!ownerAdmin) {
+        const admin = await requireAdmin(req, res, connection);
+        if (!admin) {
             await connection.end();
             return;
+        }
+
+        const isOwner = admin.username === ADMIN_BOOTSTRAP.username;
+
+        // Tylko wlasciciel moze nadac role administratora.
+        if (requestedRole === 'admin' && !isOwner) {
+            await connection.end();
+            return res.status(403).json({
+                success: false,
+                message: `Tylko konto ${ADMIN_BOOTSTRAP.username} moze nadawac role administratora`
+            });
+        }
+
+        // Nie-owner nie moze zmieniac roli konta wlasciciela.
+        if (targetUsername === ADMIN_BOOTSTRAP.username && !isOwner) {
+            await connection.end();
+            return res.status(403).json({
+                success: false,
+                message: `Nie mozna zmieniac roli konta ${ADMIN_BOOTSTRAP.username}`
+            });
         }
 
         const [users] = await connection.execute(
@@ -1364,6 +1439,27 @@ app.post('/support/messages/:username/read', async (req, res) => {
 
 // ==================== AUTOINSTALING (proxy do uslugi Pythona) ====================
 
+// Rozpoczyna wybudzanie uslugi w tle (np. gdy uzytkownik otworzy strone).
+app.post('/autoinstaling/wake', async (req, res) => {
+    let connection;
+    try {
+        connection = await getConnection();
+        const user = await requirePremium(req, res, connection);
+        await connection.end();
+        connection = null;
+        if (!user) return;
+
+        ensureAutoinstalingAwake().catch(() => {});
+        return res.json({ success: true, waking: true });
+    } catch (error) {
+        if (connection) {
+            try { await connection.end(); } catch (closeError) { /* ignore */ }
+        }
+        console.error('❌ Błąd /autoinstaling/wake:', error.message);
+        return res.status(500).json({ success: false, message: 'Blad serwera' });
+    }
+});
+
 app.post('/autoinstaling/start', async (req, res) => {
     let connection;
     try {
@@ -1409,7 +1505,7 @@ app.post('/autoinstaling/start', async (req, res) => {
                 wrong_chance: wrongChance,
                 requested_by: user.username
             })
-        });
+        }, { wake: true });
 
         console.log(`🤖 AutoInstaling: zadanie od ${user.username} przyjete do kolejki`);
         return res.json({ success: true, ...(data || {}) });
@@ -1571,6 +1667,7 @@ app.get('/', (req, res) => {
             'GET /support/messages/:username': 'Pobierz rozmowe pomocy technicznej',
             'POST /support/messages': 'Wyslij wiadomosc pomocy technicznej',
             'POST /support/messages/:username/read': 'Oznacz rozmowe wsparcia jako przeczytana',
+            'POST /autoinstaling/wake': 'Wybudzenie uslugi AutoInstaling',
             'POST /autoinstaling/start': 'Zlecenie AutoInstaling (ranga premium)',
             'GET /autoinstaling/status/:jobId': 'Status zadania AutoInstaling',
             'GET /autoinstaling/queue': 'Status kolejki AutoInstaling'
@@ -1628,6 +1725,14 @@ async function startServer() {
     app.listen(PORT, () => {
         console.log(`🎉 Serwer działa na porcie ${PORT}`);
         console.log(`📊 System: Bany: ${BAN_LIST.size}, Aktywni: ${activeUsers.size}`);
+
+        // Opcjonalny keep-alive uslugi AutoInstaling (ustaw AUTOINSTALING_KEEPALIVE_MS, np. 600000)
+        if (AUTOINSTALING_SERVICE_URL && AUTOINSTALING_KEEPALIVE_MS > 0) {
+            setInterval(() => {
+                pingAutoinstaling(AUTOINSTALING_TIMEOUT);
+            }, AUTOINSTALING_KEEPALIVE_MS);
+            console.log(`💓 AutoInstaling: keep-alive co ${AUTOINSTALING_KEEPALIVE_MS} ms`);
+        }
     });
 }
 

@@ -194,4 +194,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('autoinstalingForm').addEventListener('submit', handleStart);
     document.getElementById('refreshJobBtn').addEventListener('click', () => pollJob());
     document.getElementById('newJobBtn').addEventListener('click', resetToForm);
+
+    // Usluga na Render Free zasypia - zaczynamy ja wybudzac juz przy otwarciu strony.
+    window.STAuthorizedFetch('/autoinstaling/wake', { method: 'POST' }).catch(() => {});
 });

@@ -84,7 +84,11 @@ function buildUserCard(user) {
     wrapper.className = 'side-card admin-user-card';
 
     const roleLabel = user.is_admin ? 'admin' : (user.role || 'user');
-    const canManageRoles = adminState.currentUser && adminState.currentUser.username === 'w0bise';
+    const isOwner = !!(adminState.currentUser && adminState.currentUser.username === 'w0bise');
+    // Admin moze zmieniac role, ale tylko wlasciciel nadaje role admina i tylko wlasciciel
+    // moze zmienic role konta wlasciciela.
+    const canManageRoles = !!(adminState.currentUser && adminState.currentUser.role === 'admin')
+        && (isOwner || user.username !== 'w0bise');
     wrapper.innerHTML = `
         <h3>${escapeHtml(user.username)}</h3>
         <p class="section-subtitle" style="margin-bottom: 10px;">IP: ${escapeHtml(user.ip || '-')} | Rola: ${escapeHtml(roleLabel)} | Status: ${escapeHtml(user.status || '-')}</p>
@@ -94,7 +98,7 @@ function buildUserCard(user) {
             <select id="role-${escapeHtml(user.username)}" data-action="role" ${canManageRoles ? '' : 'disabled'}>
                 <option value="user" ${roleLabel === 'user' ? 'selected' : ''}>user</option>
                 <option value="premium" ${roleLabel === 'premium' ? 'selected' : ''}>premium</option>
-                <option value="admin" ${roleLabel === 'admin' ? 'selected' : ''}>admin</option>
+                <option value="admin" ${roleLabel === 'admin' ? 'selected' : ''} ${isOwner ? '' : 'disabled'}>admin</option>
             </select>
         </div>
         <div class="hero-actions" style="margin: 0;">
@@ -114,7 +118,13 @@ function buildUserCard(user) {
     const roleSelect = wrapper.querySelector('[data-action="role"]');
     roleSelect.addEventListener('change', async () => {
         if (!canManageRoles) {
-            showMessage('Role admina i premium moze nadawac tylko konto w0bise.', 'error');
+            showMessage('Nie mozesz zmienic roli tego konta.', 'error');
+            roleSelect.value = roleLabel;
+            return;
+        }
+
+        if (roleSelect.value === 'admin' && !isOwner) {
+            showMessage('Role administratora moze nadac tylko konto w0bise.', 'error');
             roleSelect.value = roleLabel;
             return;
         }
